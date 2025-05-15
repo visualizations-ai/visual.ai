@@ -1,0 +1,45 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node --trace-deprecation ./build/src/index.js",
+    "dev": "nodemon -r tsconfig-paths/register src/index.ts",
+    "build": "npm run migration:run && tsc --project tsconfig.json && tsc-alias -p tsconfig.json"
+
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@apollo/server": "^4.12.1",
+    "@graphql-tools/merge": "^9.0.24",
+    "@graphql-tools/schema": "^10.0.23",
+    "bcryptjs": "^3.0.2",
+    "cookie-session": "^2.1.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "graphql": "^16.11.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "loadash": "^1.0.0",
+    "pg": "^8.16.0",
+    "reflect-metadata": "^0.2.2",
+    "typeorm": "^0.3.24",
+    "typescript-transform-paths": "^3.5.5"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cookie-session": "^2.0.49",
+    "@types/cors": "^2.8.18",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/lodash": "^4.17.16",
+    "@types/pg": "^8.15.1",
+    "nodemon": "^3.1.10",
+    "tsc-alias": "^1.8.16",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.8.3"
+  }
+}

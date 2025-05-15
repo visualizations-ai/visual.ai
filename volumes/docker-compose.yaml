@@ -1,0 +1,21 @@
+name: visual.ai
+services:
+
+  postgres:
+    container_name: postgres_db_container
+    image: postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=visual.ai
+      - POSTGRES_PASSWORD=visualpass
+      - POSTGRES_DB=visual_db
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./docker-volumes/postgres:/var/lib/postgresql
+    networks:
+      - visual.ai-network
+
+networks:
+  visual.ai-network:
+    driver: bridge
