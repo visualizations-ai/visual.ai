@@ -19,8 +19,7 @@
       { "transform": "typescript-transform-paths", "afterDeclarations": true }
     ],
     "paths": {
-      "@/": ["src/"]
-    },
+ "@/*": ["src/*"]    },
     "types": ["node", "express"],
     "typeRoots": ["./node_modules/@types"]
   },
