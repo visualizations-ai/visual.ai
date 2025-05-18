@@ -41,20 +41,17 @@ const bootstrap = async () => {
   const corsOptions = {
     origin: ['http://localhost:4000'],
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], 
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   };
   app.use(cors(corsOptions));
 
-  // Try to start the HTTP server on port 3000
   try {
     httpServer.listen(3000, () => {
       console.log('✅ Server is running on port 3000');
     });
   } catch (error) {
-    // Log any error that occurs while starting the server
     console.error('❌ Error starting server:', error);
   }
 };
 
-// Run the bootstrap function and catch any errors
 bootstrap().catch(console.error);
