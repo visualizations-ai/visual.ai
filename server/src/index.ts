@@ -21,8 +21,8 @@ const bootstrap = async () => {
   app.use(
     cookieSession({
       name: 'session',
-      //temporary key for development, should be replaced with a secure key in production
-      keys: ['asd6465', 'zxc3213554'],
+      //implementing cookie encryption for production
+      keys: [envConfig.SECRET_KEY_ONE, envConfig.SECRET_KEY_TWO],
       maxAge: 24 * 7 * 3600000, // 7 days
     }),
   );
