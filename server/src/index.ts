@@ -1,21 +1,11 @@
-// Required for using decorators (e.g., with TypeORM or class-validator)
+import { envConfig } from './config/env.config';
 import 'reflect-metadata';
-
-// Native Node.js HTTP module for creating the server
 import http from 'http';
-
-// Express framework for handling routing and middleware
 import express from 'express';
-
-// Cookie-session middleware for session management using cookies
 import cookieSession from 'cookie-session';
-
-// Middleware to enable CORS (Cross-Origin Resource Sharing)
 import cors from 'cors';
 
-// Main async function to bootstrap the server
 const bootstrap = async () => {
-  // Create an Express application
   const app = express();
 
   // Create a raw HTTP server using the Express app instance
@@ -39,15 +29,15 @@ const bootstrap = async () => {
 
   // CORS configuration to allow requests from a specific origin
   const corsOptions = {
-    origin: ['http://localhost:4000'],
+    origin: [envConfig.REACT_URL],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   };
   app.use(cors(corsOptions));
 
   try {
-    httpServer.listen(3000, () => {
-      console.log('✅ Server is running on port 3000');
+    httpServer.listen(envConfig.PORT, () => {
+      console.log(`✅ Server is running on port${envConfig.PORT}`);
     });
   } catch (error) {
     console.error('❌ Error starting server:', error);
