@@ -1,35 +1,41 @@
-import express, { Request, Response } from 'express';
+import 'reflect-metadata';
+
+import http from 'http';
+
+import express from 'express';
+import cookieSession from 'cookie-session';
 import cors from 'cors';
-import open from 'open';
 
-const app = express();
 
-app.use(cors());
-app.use(express.json());
+const bootstrap = async () => {
+  const app = express();
+  const httpServer: http.Server = new http.Server(app);
 
-app.get('/', (req: Request, res: Response) => {
-  res.send('pong');
-});
 
-const server = app.listen(0, async () => {
-  const addressInfo = server.address();
-  if (typeof addressInfo === 'object' && addressInfo !== null) {
-    const url = `http://localhost:${addressInfo.port}`;
-    console.log(`Server is running at ${url} yay we did it!`);
-    try {
-      await open(url);
-    } catch (error) {
-      console.error('Failed to open browser:', error);
+  app.set('trust proxy', 1);
+  app.use(
+    cookieSession({
+      name: 'session',
+      // This is the secret used to encrypt the cookie temporarily
+      keys: ['asd6465', 'zxc3213554'],
+      maxAge: 24 * 7 * 3600000,
+      }),
+    );
+    const corsOptions = {
+      origin: ['http://localhost:4000'],
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE' , 'OPTIONS'],
+
     }
-  }
-});
+    app.use(cors(corsOptions));
 
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled promise rejection:', err);
-  server.close(() => process.exit(1));
+    try {
+      httpServer.listen(3000, () => {
+        console.log('Server is running on port 3000');
+      })
+    }catch (error) {
+      console.error('Error starting server:', error);
+    }
+}
 
-});
-
-
-
-
+bootstrap().catch(console.error);
