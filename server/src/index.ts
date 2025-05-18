@@ -4,6 +4,7 @@ import http from 'http';
 import express from 'express';
 import cookieSession from 'cookie-session';
 import cors from 'cors';
+import { Source } from './database/config';
 
 const bootstrap = async () => {
   const app = express();
@@ -44,4 +45,7 @@ const bootstrap = async () => {
   }
 };
 
-bootstrap().catch(console.error);
+Source.initialize().then(() => {
+  console.log('✅ PostgreSQL connected successfully.');
+  bootstrap().catch(console.error);
+}).catch((error) => console.log('❌ Error connecting to PostgreSQL.', error));

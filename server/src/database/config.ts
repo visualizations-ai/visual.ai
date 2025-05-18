@@ -15,4 +15,4 @@ const databaseConfig: DataSourceOptions = {
   migrations: ["src/database/migrations/**/*{.ts,.js}"],
 };
 
-export const AppDataSource = new DataSource(databaseConfig);
+export const Source = new DataSource(databaseConfig);
