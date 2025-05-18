@@ -38,14 +38,14 @@ const bootstrap = async () => {
 
   try {
     httpServer.listen(envConfig.PORT, () => {
-      console.log(`✅ Server is running on port${envConfig.PORT}`);
+      console.log(` Server is running on port${envConfig.PORT}`);
     });
   } catch (error) {
-    console.error('❌ Error starting server:', error);
+    console.error(' Error starting server:', error);
   }
 };
 
 Source.initialize().then(() => {
-  console.log('✅ PostgreSQL connected successfully.');
+  console.log(' PostgreSQL connected successfully.');
   bootstrap().catch(console.error);
-}).catch((error) => console.log('❌ Error connecting to PostgreSQL.', error));
+}).catch((error) => console.log(' Error connecting to PostgreSQL.', error));
