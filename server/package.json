@@ -5,6 +5,11 @@
   "scripts": {
     "start": "node --trace-deprecation ./build/src/index.js",
     "dev": "nodemon -r tsconfig-paths/register src/index.ts",
+    "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli",
+    "migration:generate": "npm run typeorm migration:generate -- -d src/database/config.ts",
+    "migration:create": "npm run typeorm migration:create",
+    "migration:run": "npm run typeorm migration:run -- -d src/database/config.ts",
+    "migration:revert": "npm run typeorm migration:revert -- -d src/database/config.ts",
     "build": "npm run migration:run && tsc --project tsconfig.json && tsc-alias -p tsconfig.json"
   },
   "keywords": [],
