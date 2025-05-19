@@ -1,23 +1,15 @@
 import React from "react";
-
-export interface ModalProps {
-  isOpen: boolean; 
-  onClose: () => void; 
-  children: React.ReactNode; 
-}
+import type { ModalProps } from "./types/modal-type"; 
 
 export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children }) => {
-
-    if (!isOpen) return null;
+  if (!isOpen) return null;
 
   return (
-    <div>
-      <div>
-        <button onClick={onClose}>close</button>
-      </div>
+    <div role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <h2 id="modal-title">Modal Title</h2>
+      <button onClick={onClose} aria-label="Close modal">Close</button>
       <div>{children}</div>
     </div>
   );
 }    
-
 

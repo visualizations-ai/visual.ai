@@ -1,11 +1,7 @@
 import React  from "react";
 
-export interface PaginationProps {
-    totalItems: number;
-    itemsPerPage: number;
-    currentPage: number;
-    onPageChange: (page: number) => void;
-}
+import type { PaginationProps } from "./types/pagination-type";
+
 
 export const Pagination: React.FC<PaginationProps> = ({ totalItems, itemsPerPage, currentPage, onPageChange }) => {
     const totalPages = Math.ceil(totalItems / itemsPerPage);
@@ -18,6 +14,7 @@ export const Pagination: React.FC<PaginationProps> = ({ totalItems, itemsPerPage
                     key={page}
                     onClick={() => onPageChange(page)}
                     style={{ fontWeight: page === currentPage ? 'bold' : 'normal' }}
+                    aria-current={page === currentPage ? "page" : undefined}
                 >
                     {page}
                 </button>

@@ -1,9 +1,6 @@
 import React, { useEffect } from 'react';
 
- export interface ToastProps {
-  message: string;           
-  onClose: () => void;      
-};
+import type { ToastProps } from "./types/toast-type";
 
 export const Toast: React.FC<ToastProps> = ({ message, onClose }) => {
   useEffect(() => {
