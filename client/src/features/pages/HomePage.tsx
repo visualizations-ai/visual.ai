@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Sidebar } from "../../shared/types/sidebar";
+import { Sidebar } from "../../shared/sidebar";
 import { MessageSquare, Send, Loader2 } from "lucide-react";
 
 
@@ -36,7 +36,7 @@ export default function HomePage() {
     } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { role: "bot", content: "שגיאה בחיבור לשרת" },
+        { role: "bot", content: "error: " + (err as Error).message },
       ]);
     } finally {
       setLoading(false);
@@ -50,14 +50,14 @@ export default function HomePage() {
       <div className="flex-1 flex flex-col">
         <div className="bg-white p-4 border-b border-gray-200 flex items-center">
           <MessageSquare size={20} className="text-gray-500 mr-2" />
-          <h2 className="font-medium">שיחה חדשה</h2>
+          <h2 className="font-medium">new conversion</h2>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 bg-white">
           <div className={`flex flex-col space-y-4 ${messages.length === 0 ? 'h-32' : 'min-h-0'}`}>
             {messages.length === 0 ? (
               <div className="flex-1 flex items-center justify-center text-gray-400">
-                <p>שלח הודעה כדי להתחיל את השיחה</p>
+                <p>  send a message to start conversion</p>
               </div>
             ) : (
               messages.map((msg, idx) => (
