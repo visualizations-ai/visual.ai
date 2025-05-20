@@ -1,38 +1,27 @@
 import React, { useState } from "react";
+import type { CustomDropdownProps, Option } from "./types/dropdown-types";
 
-interface Option {
-  label: string;
-  value: string;
-}
-
-interface Props {
-  options: Option[]; 
-  selected: string; 
-  onSelect: (value: string) => void;
-}
-
-export const CustomDropdown: React.FC<Props> = ({ options, selected, onSelect }) => {
-  
+export const CustomDropdown: React.FC<CustomDropdownProps> = ({ options, selected, onSelect }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div >
-    
+    <div>
       <button
-        onClick={() => setIsOpen(!isOpen)} 
-        
+        aria-haspopup="listbox"             
+        aria-expanded={isOpen}              
+        onClick={() => setIsOpen(!isOpen)}
       >
-        
-        {options.find((o) => o.value === selected)?.label || "choose an option"}
+        {options.find((o: Option) => o.value === selected)?.label || "choose an option"}
       </button>
 
       {isOpen && (
-        <ul>
-          {options.map((option) => (
+        <ul role="listbox">
+          {options.map((option: Option) => (
             <li
-              key={option.value} 
+              key={option.value}
+              role="option"
               onClick={() => {
-                onSelect(option.value); 
+                onSelect(option.value);
                 setIsOpen(false);
               }}
             >
