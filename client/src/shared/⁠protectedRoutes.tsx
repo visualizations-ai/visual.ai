@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAppSelector, useAppDispatch } from '../hooks/reduxHooks';
-import { setUser } from '../store/authSlice'; // ודא שזה אכן קיים
+import { useAppSelector, useAppDispatch } from '../hooks/redux-hooks';
+import { setUser } from '../store/auth-slice'; 
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -36,7 +36,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       return;
     }
 
-    const hasRequiredRole = roles.some(role => user.roles?.includes(role));
+    const hasRequiredRole = roles.includes(user.role);
     setIsAuthorized(hasRequiredRole);
   }, [isAuthenticated, user, loading, roles, dispatch]);
   
