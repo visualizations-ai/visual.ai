@@ -54,10 +54,10 @@ export default function HomePage() {
 
   return (
     <div className="flex h-screen">
-      {/* סיידבר */}
+      
       <Sidebar />
 
-      {/* אזור הצ'אט */}
+     
       <div className="flex-1 flex flex-col">
         <div className="bg-white p-4 border-b border-gray-200 flex items-center justify-between">
           <div className="flex items-center">
