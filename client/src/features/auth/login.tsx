@@ -4,10 +4,9 @@ const Login = () => {
   const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); // מונע טעינת דף מחדש
+    e.preventDefault(); 
 
-    // כאן אפשר להוסיף אימות משתמש או קריאה ל-API
-    // אם ההתחברות מצליחה, נווט לדף הבית:
+    
     navigate("/home");
   };
 
