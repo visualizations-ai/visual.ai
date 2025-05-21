@@ -1,9 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Provider } from "react-redux";
 import { store } from "./store/store";
 import Login from "./features/auth/login";
 import Register from "./features/auth/register";
 import HomePage from "./features/pages/home-page";
+import LandingPage from "./features/pages/landing-page";
 import ProtectedRoute from "./shared/⁠protectedRoutes";
 
 function App() {
@@ -11,7 +12,7 @@ function App() {
     <Provider store={store}>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/home" element={

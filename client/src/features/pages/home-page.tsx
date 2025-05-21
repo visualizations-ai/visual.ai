@@ -53,30 +53,28 @@ export default function HomePage() {
   };
 
   return (
-    <div className="flex h-screen">
-      
+    <div className="flex h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900">
       <Sidebar />
 
-     
       <div className="flex-1 flex flex-col">
-        <div className="bg-white p-4 border-b border-gray-200 flex items-center justify-between">
+        <div className="bg-slate-800/80 backdrop-blur-sm p-4 border-b border-indigo-500/20 flex items-center justify-between">
           <div className="flex items-center">
-            <MessageSquare size={20} className="text-gray-500 mr-2" />
-            <h2 className="font-medium">new conversion</h2>
+            <MessageSquare size={24} className="text-indigo-100 mr-2" />
+            <h2 className="font-medium text-indigo-100">New Conversation</h2>
           </div>
           <button
             onClick={handleLogout}
-            className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+            className="px-4 py-1.5 text-sm bg-[#7B7EF4] text-white rounded-full hover:bg-[#6B6EE4] transition-colors"
           >
             Logout
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 bg-white">
+        <div className="flex-1 overflow-y-auto p-4 bg-gradient-to-b from-indigo-50/90 to-slate-50/90">
           <div className={`flex flex-col space-y-4 ${messages.length === 0 ? 'h-32' : 'min-h-0'}`}>
             {messages.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center text-gray-400">
-                <p>send a message to start conversion</p>
+              <div className="flex-1 flex items-center justify-center text-indigo-300">
+                <p>Send a message to start conversation</p>
               </div>
             ) : (
               messages.map((msg, idx) => (
@@ -85,10 +83,10 @@ export default function HomePage() {
                   className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[80%] p-3 rounded-lg ${
+                    className={`max-w-[80%] p-3 rounded-lg backdrop-blur-sm ${
                       msg.role === "user"
-                        ? "bg-blue-500 text-white"
-                        : "bg-gray-100 text-gray-800"
+                        ? "bg-[#7B7EF4] text-white"
+                        : "bg-white/80 text-indigo-600 border border-indigo-100"
                     }`}
                   >
                     {msg.content}
@@ -100,12 +98,12 @@ export default function HomePage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200">
+        <form onSubmit={handleSubmit} className="p-4 bg-white/80 backdrop-blur-sm border-t border-indigo-100">
           <div className="flex items-center">
             <input
               type="text"
-              className="flex-1 p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="..."
+              className="flex-1 p-3 rounded-lg bg-white/60 border border-indigo-100 text-indigo-600 placeholder-indigo-300 focus:outline-none focus:ring-2 focus:ring-[#7B7EF4] focus:border-transparent"
+              placeholder="Type your message..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={loading}
@@ -113,15 +111,15 @@ export default function HomePage() {
             />
             <button
               type="submit"
-              className={`ml-2 p-3 rounded-full ${
+              className={`ml-2 p-3 rounded-full transition-colors ${
                 loading || !input.trim()
-                  ? "bg-gray-300 cursor-not-allowed"
-                  : "bg-blue-500 hover:bg-blue-600"
+                  ? "bg-[#7B7EF4]/50 cursor-not-allowed"
+                  : "bg-[#7B7EF4] hover:bg-[#6B6EE4]"
               }`}
               disabled={loading || !input.trim()}
             >
               {loading ? (
-                <Loader2 size={20} className="text-white animate-spin" />
+                <Loader2 size={20} className="text-white/80 animate-spin" />
               ) : (
                 <Send size={20} className="text-white" />
               )}

@@ -58,50 +58,50 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-6 text-center">Register to Visual.AI</h1>  
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 px-4">
+      <div className="bg-slate-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-xl shadow-indigo-500/10 w-full max-w-md border border-indigo-400/20">
+        <h1 className="text-2xl font-bold mb-6 text-center bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 to-purple-400">Register to Visual.AI</h1>
         
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <div className="bg-red-900/50 border border-red-400/20 text-red-200 px-4 py-3 rounded mb-4">
             {error}
           </div>
         )}
         
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>  
+            <label className="block text-sm font-medium text-indigo-200">Email</label>
             <input
               type="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="mt-1 w-full p-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-[#7B7EF4] focus:border-transparent"
               required
             />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700">Password</label>  
+            <label className="block text-sm font-medium text-indigo-200">Password</label>
             <input
               type="password"
               name="password"
               value={formData.password}
               onChange={handleChange}
-              className="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="mt-1 w-full p-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-[#7B7EF4] focus:border-transparent"
               required
               minLength={6}
             />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700">Confirm Password</label>  
+            <label className="block text-sm font-medium text-indigo-200">Confirm Password</label>
             <input
               type="password"
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
-              className="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="mt-1 w-full p-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-[#7B7EF4] focus:border-transparent"
               required
               minLength={6}
             />
@@ -111,17 +111,17 @@ const Register = () => {
             type="submit"
             disabled={loading}
             className={`w-full text-white py-2 rounded-lg transition ${
-              loading ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
-            }`}
+              loading ? "bg-[#7B7EF4]/50" : "bg-[#7B7EF4] hover:bg-[#6B6EE4]"
+            } shadow-lg shadow-[#7B7EF4]/20`}
           >
             {loading ? "Registering..." : "Register"}
           </button>
         </form>
         
         <div className="mt-4 text-center">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-indigo-200/80">
             Already have an account?{" "}
-            <Link to="/login" className="text-blue-600 hover:underline">
+            <Link to="/login" className="text-indigo-400 hover:text-indigo-300 hover:underline">
               Login here
             </Link>
           </p>

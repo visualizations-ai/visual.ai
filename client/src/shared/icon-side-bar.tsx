@@ -22,7 +22,7 @@ export const IconList: React.FC<IconListProps> = ({
   return (
     <div className="space-y-1">
       {icons.length === 0 ? (
-        <p className="text-gray-500 text-center">no items to display</p>
+        <p className="text-indigo-100/50 text-center">no items to display</p>
       ) : (
         icons.map((icon) => (
           <div
@@ -31,8 +31,8 @@ export const IconList: React.FC<IconListProps> = ({
             className={`
               flex items-center p-2 rounded-lg cursor-pointer transition-all
               ${selectedIcon?.label === icon.label 
-                ? 'bg-blue-100 text-blue-600' 
-                : 'hover:bg-gray-100 text-gray-700'}
+                ? 'bg-indigo-900/50 text-indigo-50' 
+                : 'text-indigo-100 hover:bg-slate-700/50'}
               ${isExpanded ? 'px-4' : 'justify-center'}
             `}
             title={!isExpanded ? icon.label : undefined}
