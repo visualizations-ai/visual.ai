@@ -21,46 +21,12 @@ const Login = () => {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError("");
-    
-    if (!formData.email || !formData.password) {
-      setError("please fill in all fields");
-      return;
-    }
-    
-    setLoading(true);
-    
-    try {
-      setTimeout(() => {
-        const mockUsers = [
-          { id: "123", email: "test@example.com", password: "password123", role: "user" },
-        ];
-        
-        const user = mockUsers.find(
-          (u) => u.email === formData.email && u.password === formData.password
-        );
-        
-        if (user) {
-          const userData = {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-          }; 
-          localStorage.setItem("user", JSON.stringify(userData));
-          dispatch(setUser(userData));
-          navigate("/home");
-        } else {
-          setError("incorrect username or password");
-        }
-      }, 1000);
-    } catch (err) {
-      setError("An error occurred during the login process. Please try again.");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault(); // מונע טעינת דף מחדש
+
+    // כאן אפשר להוסיף אימות משתמש או קריאה ל-API
+    // אם ההתחברות מצליחה, נווט לדף הבית:
+    navigate("/home");
   };
 
   return (
