@@ -26,14 +26,13 @@ const Register = () => {
     e.preventDefault();
     setError("");
     
-    // בדיקות בסיסיות לטופס
     if (!formData.email || !formData.password) {
-      setError("נא למלא את כל השדות");
+      setError("Please fill in all fields");
       return;
     }
     
     if (formData.password !== formData.confirmPassword) {
-      setError("הסיסמאות אינן תואמות");
+      setError("Passwords do not match");
       return;
     }
     
@@ -51,7 +50,7 @@ const Register = () => {
         navigate("/home");
       }, 1000);
     } catch (err) {
-      setError("אירעה שגיאה בתהליך ההרשמה. נסה שנית.");
+      setError("An error occurred during the registration process. Please try again.");
       console.error(err);
     } finally {
       setLoading(false);
@@ -61,7 +60,7 @@ const Register = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-6 text-center">הרשמה ל-Visual.AI</h1>
+        <h1 className="text-2xl font-bold mb-6 text-center">Register to Visual.AI</h1>  
         
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -71,7 +70,7 @@ const Register = () => {
         
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
-            <label className="block text-sm font-medium text-gray-700">דואר אלקטרוני</label>
+            <label className="block text-sm font-medium text-gray-700">Email</label>  
             <input
               type="email"
               name="email"
@@ -83,7 +82,7 @@ const Register = () => {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700">סיסמה</label>
+            <label className="block text-sm font-medium text-gray-700">Password</label>  
             <input
               type="password"
               name="password"
@@ -96,7 +95,7 @@ const Register = () => {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700">אימות סיסמה</label>
+            <label className="block text-sm font-medium text-gray-700">Confirm Password</label>  
             <input
               type="password"
               name="confirmPassword"
@@ -115,15 +114,15 @@ const Register = () => {
               loading ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
-            {loading ? "מבצע רישום..." : "הרשמה"}
+            {loading ? "Registering..." : "Register"}
           </button>
         </form>
         
         <div className="mt-4 text-center">
           <p className="text-sm text-gray-600">
-            כבר יש לך חשבון?{" "}
+            Already have an account?{" "}
             <Link to="/login" className="text-blue-600 hover:underline">
-              התחבר כאן
+              Login here
             </Link>
           </p>
         </div>
