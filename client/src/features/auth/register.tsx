@@ -3,12 +3,13 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAppDispatch } from "../../hooks/redux-hooks";
 import { setUser } from "../../store/auth-slice";
 
-const Login = () => {
+const Register = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
+    confirmPassword: "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,8 +26,14 @@ const Login = () => {
     e.preventDefault();
     setError("");
     
+    // בדיקות בסיסיות לטופס
     if (!formData.email || !formData.password) {
-      setError("please fill in all fields");
+      setError("נא למלא את כל השדות");
+      return;
+    }
+    
+    if (formData.password !== formData.confirmPassword) {
+      setError("הסיסמאות אינן תואמות");
       return;
     }
     
@@ -34,29 +41,17 @@ const Login = () => {
     
     try {
       setTimeout(() => {
-        const mockUsers = [
-          { id: "123", email: "test@example.com", password: "password123", role: "user" },
-        ];
-        
-        const user = mockUsers.find(
-          (u) => u.email === formData.email && u.password === formData.password
-        );
-        
-        if (user) {
-          const userData = {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-          }; 
-          localStorage.setItem("user", JSON.stringify(userData));
-          dispatch(setUser(userData));
-          navigate("/home");
-        } else {
-          setError("incorrect username or password");
-        }
+        const newUser = {
+          id: Math.random().toString(36).substr(2, 9),
+          email: formData.email,
+          role: "user",
+        };
+        localStorage.setItem("user", JSON.stringify(newUser));
+        dispatch(setUser(newUser));
+        navigate("/home");
       }, 1000);
     } catch (err) {
-      setError("An error occurred during the login process. Please try again.");
+      setError("אירעה שגיאה בתהליך ההרשמה. נסה שנית.");
       console.error(err);
     } finally {
       setLoading(false);
@@ -66,7 +61,7 @@ const Login = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-6 text-center">connct </h1>
+        <h1 className="text-2xl font-bold mb-6 text-center">הרשמה ל-Visual.AI</h1>
         
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -76,7 +71,7 @@ const Login = () => {
         
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
-            <label className="block text-sm font-medium text-gray-700"> email</label>
+            <label className="block text-sm font-medium text-gray-700">דואר אלקטרוני</label>
             <input
               type="email"
               name="email"
@@ -88,7 +83,7 @@ const Login = () => {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700">password</label>
+            <label className="block text-sm font-medium text-gray-700">סיסמה</label>
             <input
               type="password"
               name="password"
@@ -96,6 +91,20 @@ const Login = () => {
               onChange={handleChange}
               className="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               required
+              minLength={6}
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700">אימות סיסמה</label>
+            <input
+              type="password"
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              className="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              required
+              minLength={6}
             />
           </div>
           
@@ -106,15 +115,15 @@ const Login = () => {
               loading ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
-            {loading ? "connect..." : "connect"}
+            {loading ? "מבצע רישום..." : "הרשמה"}
           </button>
         </form>
         
         <div className="mt-4 text-center">
           <p className="text-sm text-gray-600">
-            אין לך חשבון?{" "}
-            <Link to="/register" className="text-blue-600 hover:underline">
-              הירשם כאן
+            כבר יש לך חשבון?{" "}
+            <Link to="/login" className="text-blue-600 hover:underline">
+              התחבר כאן
             </Link>
           </p>
         </div>
@@ -123,4 +132,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default Register;

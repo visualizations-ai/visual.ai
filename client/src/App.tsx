@@ -1,16 +1,27 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Provider } from "react-redux";
+import { store } from "./store/store";
 import Login from "./features/auth/login";
-import HomePage from "./features/pages/HomePage"; 
+import Register from "./features/auth/register";
+import HomePage from "./features/pages/HomePage";
+import ProtectedRoute from "./shared/⁠protectedRoutes";
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/home" element={<HomePage />} /> 
-      </Routes>
-    </BrowserRouter>
+    <Provider store={store}>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/home" element={
+            <ProtectedRoute>
+              <HomePage />
+            </ProtectedRoute>
+          } />
+        </Routes>
+      </BrowserRouter>
+    </Provider>
   );
 }
 
