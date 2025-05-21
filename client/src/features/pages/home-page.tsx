@@ -12,6 +12,7 @@ export default function HomePage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+
   const handleLogout = () => {
     localStorage.removeItem("user");
     dispatch(setUser(null));
@@ -52,9 +53,11 @@ export default function HomePage() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen">
+      {/* סיידבר */}
       <Sidebar />
 
+      {/* אזור הצ'אט */}
       <div className="flex-1 flex flex-col">
         <div className="bg-white p-4 border-b border-gray-200 flex items-center justify-between">
           <div className="flex items-center">
@@ -97,8 +100,8 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="p-4 border-t border-gray-200 bg-white">
-          <form onSubmit={handleSubmit} className="flex items-center">
+        <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200">
+          <div className="flex items-center">
             <input
               type="text"
               className="flex-1 p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -110,7 +113,7 @@ export default function HomePage() {
             />
             <button
               type="submit"
-              className={`mr-2 p-3 rounded-full ${
+              className={`ml-2 p-3 rounded-full ${
                 loading || !input.trim()
                   ? "bg-gray-300 cursor-not-allowed"
                   : "bg-blue-500 hover:bg-blue-600"
@@ -123,8 +126,8 @@ export default function HomePage() {
                 <Send size={20} className="text-white" />
               )}
             </button>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
     </div>
   );
