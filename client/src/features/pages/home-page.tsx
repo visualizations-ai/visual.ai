@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useAppDispatch } from "../../hooks/redux-hooks"; 
 import { setUser } from "../../store/auth-slice"; 
 
-export default function HomePage() {
+export const HomePage = () => {
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
