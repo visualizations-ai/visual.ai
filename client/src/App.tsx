@@ -3,8 +3,8 @@ import { Provider } from "react-redux";
 import { store } from "./store/store";
 import Login from "./features/auth/login";
 import Register from "./features/auth/register";
-import HomePage from "./features/pages/home-page";
-import LandingPage from "./features/pages/landing-page";
+import { HomePage } from "./features/pages/home-page";
+import {LandingPage} from "./features/pages/landing-page";
 import ProtectedRoute from "./shared/⁠protectedRoutes";
 
 function App() {
