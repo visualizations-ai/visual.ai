@@ -13,6 +13,14 @@ export const HomePage = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
+  // Sample questions for quick access
+  const sampleQuestions = [
+    "What is the current stock level of our best-selling products",
+    "Which customers haven't made a purchase in the last three months ",
+    "Are there any budget overruns in this month's expenses",
+    "Which products should we reorder this week based on sales forecasts"
+  ];
+
   const handleLogout = () => {
     localStorage.removeItem("user");
     dispatch(setUser(null));
@@ -20,11 +28,28 @@ export const HomePage = () => {
   };
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Always scroll to show only the latest question-answer pair
+    if (messages.length > 0) {
+      const messagesContainer = document.querySelector('.messages-container');
+      if (messagesContainer) {
+        // Calculate how much content we have
+        const containerHeight = messagesContainer.clientHeight;
+        const scrollHeight = messagesContainer.scrollHeight;
+        
+        // If content is more than container, scroll to show only latest messages
+        if (scrollHeight > containerHeight) {
+          // Scroll to bottom minus a bit to show only the latest conversation
+          messagesContainer.scrollTop = scrollHeight - containerHeight + 100;
+        }
+      }
+    }
   }, [messages]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
+    
     if (!input.trim() || loading) return;
 
     const userMessage = { role: "user", content: input };
@@ -52,15 +77,57 @@ export const HomePage = () => {
     }
   };
 
+  // Set sample question and submit immediately
+  const setAndSubmitQuestion = (question: string) => {
+    if (loading) return;
+    setInput(question);
+    
+    setTimeout(() => {
+      const userMessage = { role: "user", content: question };
+      setMessages((prev) => [...prev, userMessage]);
+      setInput("");
+      setLoading(true);
+
+      try {
+        fetch("http://localhost:3000/api/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question }),
+        })
+          .then(res => res.json())
+          .then(data => {
+            const botMessage = { role: "bot", content: data.answer };
+            setMessages((prev) => [...prev, botMessage]);
+          })
+          .catch(err => {
+            setMessages((prev) => [
+              ...prev,
+              { role: "bot", content: "error: " + (err as Error).message },
+            ]);
+          })
+          .finally(() => {
+            setLoading(false);
+          });
+      } catch (err) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "bot", content: "error: " + (err as Error).message },
+        ]);
+        setLoading(false);
+      }
+    }, 0);
+  };
+
   return (
-    <div className="flex h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900">
+    <div className="flex h-screen bg-gradient-to-br from-slate-100 via-indigo-50 to-slate-100">
       <Sidebar />
 
       <div className="flex-1 flex flex-col">
-        <div className="bg-slate-800/80 backdrop-blur-sm p-4 border-b border-indigo-500/20 flex items-center justify-between">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 bg-gradient-to-b from-indigo-50/90 to-slate-50/90">
           <div className="flex items-center">
-            <MessageSquare size={24} className="text-indigo-100 mr-2" />
-            <h2 className="font-medium text-indigo-100">New Conversation</h2>
+            <MessageSquare size={24} className="text-indigo-700 mr-2" />
+            <h2 className="font-medium text-indigo-800">New Conversation</h2>
           </div>
           <button
             onClick={handleLogout}
@@ -70,39 +137,54 @@ export const HomePage = () => {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 bg-gradient-to-b from-indigo-50/90 to-slate-50/90">
-          <div className={`flex flex-col space-y-4 ${messages.length === 0 ? 'h-32' : 'min-h-0'}`}>
+        {/* Messages Area - Fixed height with scroll */}
+        <div className="flex-1 overflow-y-auto bg-gradient-to-b from-indigo-50/90 to-slate-50/90 pb-24">
+          <div className="max-w-2xl mx-auto w-3/4 px-4">
             {messages.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center text-indigo-300">
-                <p>Send a message to start conversation</p>
+              <div className="flex flex-col items-center justify-center min-h-[400px] text-indigo-800 space-y-5">
+                <p className="text-lg font-medium">Send a message to start conversation</p>
+                
+                <div className="flex flex-wrap justify-center gap-3 max-w-2xl w-full">
+                  {sampleQuestions.map((question, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setAndSubmitQuestion(question)}
+                      className="p-2 bg-white border border-indigo-100 rounded-lg shadow-sm hover:bg-indigo-50/80 hover:border-indigo-200 transition-colors text-xs text-indigo-700 text-center w-[130px] h-[70px] flex items-center justify-center"
+                    >
+                      {question}
+                    </button>
+                  ))}
+                </div>
               </div>
             ) : (
-              messages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-[80%] p-3 rounded-lg backdrop-blur-sm ${
-                      msg.role === "user"
-                        ? "bg-[#7B7EF4] text-white"
-                        : "bg-white/80 text-indigo-600 border border-indigo-100"
-                    }`}
-                  >
-                    {msg.content}
+              <div className="pt-4 space-y-2">
+                {messages.map((msg, idx) => (
+                  <div key={idx} className="mb-1" data-message-index={idx}>
+                    {msg.role === "user" ? (
+                      <div className="flex justify-end mb-1">
+                        <div className="bg-indigo-300 text-white p-2 rounded-lg text-sm max-w-[80%]">
+                          {msg.content}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-indigo-700 text-sm mb-2">
+                        {msg.content}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
             )}
-            <div ref={messagesEndRef} />
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 bg-white/80 backdrop-blur-sm border-t border-indigo-100">
-          <div className="flex items-center">
+        {/* Input Area - Fixed at bottom */}
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-3/4 max-w-2xl">
+          <form onSubmit={handleSubmit} className="flex items-center">
             <input
               type="text"
-              className="flex-1 p-3 rounded-lg bg-white/60 border border-indigo-100 text-indigo-600 placeholder-indigo-300 focus:outline-none focus:ring-2 focus:ring-[#7B7EF4] focus:border-transparent"
+              className="flex-1 p-3 rounded-3xl bg-white text-indigo-600 placeholder-indigo-400 border border-indigo-200 shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               placeholder="Type your message..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -124,8 +206,8 @@ export const HomePage = () => {
                 <Send size={20} className="text-white" />
               )}
             </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );
