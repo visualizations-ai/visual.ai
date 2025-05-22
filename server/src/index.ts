@@ -5,9 +5,15 @@ import express from 'express';
 import cookieSession from 'cookie-session';
 import cors from 'cors';
 import { Source } from './database/config';
+/////////////////////////////
+/////////////////////////////
+/////////////////////////////
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import { schema } from './graphql/schema';
+/////////////////////////////
+/////////////////////////////
+/////////////////////////////
 
 const bootstrap = async () => {
   const app = express();
@@ -49,9 +55,7 @@ app.get('/api/config', (req, res) => {
     graphqlEndpoint: '/graphql'
   });
 });
-///////////////////////////////
-//////////////////////////////
-/////////////////////////////
+
   // Create Apollo Server instance
   const apolloServer = new ApolloServer({
     schema,
@@ -69,10 +73,18 @@ app.get('/api/config', (req, res) => {
     })
   );
 
+  //////////////////////////////
+  //////////////////////////////
+  //////////////////////////////
+
+
+
   try {
     httpServer.listen(envConfig.PORT, () => {
       console.log(` Server is running on port ${envConfig.PORT}`);
+      //////////////////////////////
       console.log(` GraphQL endpoint: http://localhost:${envConfig.PORT}/graphql`);
+      //////////////////////////////
     });
   } catch (error) {
     console.error(' Error starting server:', error);
