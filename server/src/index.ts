@@ -38,7 +38,20 @@ const bootstrap = async () => {
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   };
   app.use(cors(corsOptions));
-
+  //////////////////////////
+  ///////////////////////////
+  ///////////////////////////
+// API endpoint to get public server configuration
+app.get('/api/config', (req, res) => {
+  // Only expose safe configuration values
+  res.json({
+    apiUrl: `http://localhost:${envConfig.PORT}`,
+    graphqlEndpoint: '/graphql'
+  });
+});
+///////////////////////////////
+//////////////////////////////
+/////////////////////////////
   // Create Apollo Server instance
   const apolloServer = new ApolloServer({
     schema,
