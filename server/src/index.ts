@@ -1,51 +1,73 @@
-import { envConfig } from './config/env.config';
 import 'reflect-metadata';
 import http from 'http';
-import express from 'express';
-import cookieSession from 'cookie-session';
-import cors from 'cors';
-import { Source } from './database/config';
+import express, { Request, Response } from 'express';
+import { ApolloServer, BaseContext } from '@apollo/server';
+import { GraphQLFormattedError, GraphQLSchema } from 'graphql';
+import { makeExecutableSchema } from '@graphql-tools/schema';
+import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer';
+import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
+import { ApolloServerPluginLandingPageDisabled } from '@apollo/server/plugin/disabled';
+
+import { envConfig } from './config/env.config';
+import { AppDataSource } from './database/config';
+import { mergedGQLSchema } from './graphql/schemas';
+import { mergedGQLResolvers } from './graphql/resolvers';
+import { AppContext } from './interfaces/auth.interface';
+
+import { applySessionMiddleware } from './middlewares/session.middleware';
+import { applyCorsMiddleware } from './middlewares/cors.middleware';
+import { applyBodyParserMiddleware } from './middlewares/body.middleware';
+import { applyGraphQLMiddleware } from './middlewares/graphql.middleware';
 
 const bootstrap = async () => {
   const app = express();
+  const httpServer = http.createServer(app);
 
-  // Create a raw HTTP server using the Express app instance
-  const httpServer: http.Server = new http.Server(app);
+  const schema: GraphQLSchema = makeExecutableSchema({
+    typeDefs: mergedGQLSchema,
+    resolvers: mergedGQLResolvers,
+  });
 
-  // Trust the first proxy in front of the app (needed for cookie-session)
-  app.set('trust proxy', 1);
-
-  // Set up cookie-session middleware
-  // - name: name of the session cookie
-  // - keys: used to encrypt the cookie
-  // - maxAge: cookie expiration time (7 days in milliseconds)
-  app.use(
-    cookieSession({
-      name: 'session',
-      //implementing cookie encryption for production
-      keys: [envConfig.SECRET_KEY_ONE, envConfig.SECRET_KEY_TWO],
-      maxAge: 24 * 7 * 3600000, // 7 days
+  const server = new ApolloServer<BaseContext | AppContext>({
+    schema,
+    formatError: (error: GraphQLFormattedError) => ({
+      message: error.message,
+      code: error.extensions?.code || 'INTERNAL_SERVER_ERROR',
     }),
-  );
+    introspection: envConfig.NODE_ENV === 'development',
+    plugins: [
+      ApolloServerPluginDrainHttpServer({ httpServer }),
+      envConfig.NODE_ENV !== 'production'
+        ? ApolloServerPluginLandingPageLocalDefault({ embed: true, includeCookies: true })
+        : ApolloServerPluginLandingPageDisabled(),
+    ],
+  });
 
-  // CORS configuration to allow requests from a specific origin
-  const corsOptions = {
-    origin: [envConfig.REACT_URL],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  };
-  app.use(cors(corsOptions));
+  await server.start();
+
+  applySessionMiddleware(app);
+  applyCorsMiddleware(app);
+  applyBodyParserMiddleware(app);
+  applyGraphQLMiddleware(app, server);
+
+  app.get('/health', (_req: Request, res: Response) => {
+    res.status(200).send('Visual.ai service is healthy and OK.');
+  });
 
   try {
     httpServer.listen(envConfig.PORT, () => {
-      console.log(` Server is running on port${envConfig.PORT}`);
+      console.log(`Server is running on port ${envConfig.PORT}`);
     });
   } catch (error) {
-    console.error(' Error starting server:', error);
+    console.error('Error starting server:', error);
   }
 };
 
-Source.initialize().then(() => {
-  console.log(' PostgreSQL connected successfully.');
-  bootstrap().catch(console.error);
-}).catch((error) => console.log(' Error connecting to PostgreSQL.', error));
+AppDataSource.initialize()
+  .then(() => {
+    console.log('PostgreSQL connected successfully.');
+    bootstrap().catch(console.error);
+  })
+  .catch((error) => {
+    console.error('Error connecting to PostgreSQL.', error);
+  });

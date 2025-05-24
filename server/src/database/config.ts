@@ -1,6 +1,7 @@
 import { envConfig } from '@/config/env.config';
-//import { User } from '@/entities/user.entity';
-//import { join } from 'path';
+import { Datasource } from '@/entities/datasource.entity';
+import { User } from '@/entities/user.entity';
+import { join } from 'path';
 import { DataSource, DataSourceOptions } from 'typeorm';
 
 const databaseConfig: DataSourceOptions = {
@@ -13,13 +14,12 @@ const databaseConfig: DataSourceOptions = {
   synchronize: false,
   logging: false,
   connectTimeoutMS: 0,
-  //entities: [User],
-  //migrations: [join(__dirname, "../database/migrations/**/*{.ts,.js}")],
-  entities: ["src/entities/**/*{.ts,.js}"],
-  migrations: ["src/database/migrations/**/*{.ts,.js}"],
+  entities: [User,Datasource],
+  migrations: [join(__dirname, "../database/migrations/**/*{.ts,.js}")],
   ssl: envConfig.DB_SSL ? {
     rejectUnauthorized: false
   } : false
 };
 
-export const Source = new DataSource(databaseConfig);
+export const AppDataSource = new DataSource(databaseConfig);
+
