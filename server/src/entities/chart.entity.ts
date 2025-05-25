@@ -1,4 +1,3 @@
-
 import { Entity, PrimaryGeneratedColumn, Column } from "typeorm";
 
 @Entity()
@@ -14,4 +13,7 @@ export class Chart {
 
   @Column("float", { array: true }) 
   data: number[];
+
+  @Column()
+  userId: string;
 }
