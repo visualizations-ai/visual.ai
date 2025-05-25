@@ -7,27 +7,31 @@ export const chartSchema = buildSchema(`#graphql
     type: String!
     data: [Float!]!
   }
-    input CreateChartInput {
-        name: String!
-        type: String!
-        data: [Float!]!
-    }
-    input UpdateChartInput {
 
+  input CreateChartInput {
+    name: String!
+    type: String!
+    data: [Float!]!
+  }
 
-        id: String!
-        name: String
-        type: String
-        data: [Float!]
-    }   
-    type Query {
+  input UpdateChartInput {
+    name: String
+    type: String
+    data: [Float!]
+  }   
 
-        getCharts: [Chart!]!
-        getChart(id: String!): Chart
-    }
-    type Mutation {
-        createChart(input: CreateChartInput!): Chart!
-        updateChart(input: UpdateChartInput!): Chart!
-        deleteChart(id: String!): String!
-    }
+  type DeleteResult {
+    message: String!
+  }
+
+  type Query {
+    getCharts: [Chart!]!
+    getChart(id: String!): Chart
+  }
+
+  type Mutation {
+    createChart(input: CreateChartInput!): Chart!
+    updateChart(id: String!, input: UpdateChartInput!): Chart!
+    deleteChart(id: String!): DeleteResult!
+  }
 `);

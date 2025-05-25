@@ -20,8 +20,17 @@ export const ChartResolvers = {
       const { req } = contextValue;
       authenticateGraphQLRoute(req);
 
-      const result: IChart = await chartService.createChart(args.input, `${req.currentUser?.userId}`);
-      return result;
+      console.log('createChart called with input:', args.input);
+      console.log('Current user ID:', req.currentUser?.userId);
+
+      try {
+        const result: IChart = await chartService.createChart(args.input, `${req.currentUser?.userId}`);
+        console.log('Chart created successfully:', result);
+        return result;
+      } catch (error) {
+        console.error('Error in createChart:', error);
+        throw error;
+      }
     },
 
     async updateChart(

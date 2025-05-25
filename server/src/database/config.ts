@@ -1,6 +1,7 @@
 import { envConfig } from '@/config/env.config';
 import { Datasource } from '@/entities/datasource.entity';
 import { User } from '@/entities/user.entity';
+import { Chart } from '@/entities/chart.entity';
 import { join } from 'path';
 import { DataSource, DataSourceOptions } from 'typeorm';
 
@@ -12,9 +13,9 @@ const databaseConfig: DataSourceOptions = {
   password: envConfig.POSTGRES_PASSWORD,
   database: envConfig.POSTGRES_DATABASE,
   synchronize: false,
-  logging: false,
+  logging: true,
   connectTimeoutMS: 0,
-  entities: [User,Datasource],
+  entities: [User, Datasource, Chart],
   migrations: [join(__dirname, "../database/migrations/**/*{.ts,.js}")],
   ssl: envConfig.DB_SSL ? {
     rejectUnauthorized: false
@@ -22,4 +23,13 @@ const databaseConfig: DataSourceOptions = {
 };
 
 export const AppDataSource = new DataSource(databaseConfig);
+
+// Initialize database connection
+AppDataSource.initialize()
+  .then(() => {
+    console.log("Data Source has been initialized!");
+  })
+  .catch((err) => {
+    console.error("Error during Data Source initialization:", err);
+  });
 

@@ -12,7 +12,6 @@ export interface ICreateChartInput {
 }
 
 export interface IUpdateChartInput {
-  id: string;
   name?: string;
   type?: string;
   data?: number[];
