@@ -38,3 +38,27 @@ mutation{
     collections
   }
 }
+
+
+query {
+  checkCurrentUser {
+      user {
+        id
+        email
+      }
+      projectIds {
+        id
+        database
+        type
+        projectId
+      }
+      collections
+    }
+  }
+
+
+mutation{
+logout {
+  message
+}
+}
