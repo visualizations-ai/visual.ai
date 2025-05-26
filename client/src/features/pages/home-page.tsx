@@ -4,6 +4,8 @@ import { MessageSquare, Send, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch } from "../../hooks/redux-hooks"; 
 import { setUser } from "../../store/auth-slice"; 
+import { useMutation } from "@apollo/client";
+import { LOGOUT_MUTATION } from "../../graphql/auth";
 
 export const HomePage = () => {
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
@@ -13,7 +15,6 @@ export const HomePage = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
-  // Sample questions for quick access
   const sampleQuestions = [
     "What is the current stock level of our best-selling products",
     "Which customers haven't made a purchase in the last three months ",
@@ -21,24 +22,37 @@ export const HomePage = () => {
     "Which products should we reorder this week based on sales forecasts"
   ];
 
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    dispatch(setUser(null));
-    navigate("/login");
+ const [logoutUser] = useMutation(LOGOUT_MUTATION, {
+    onCompleted: () => {
+      dispatch(setUser(null));
+      navigate("/login");
+    },
+    onError: (error) => {
+      console.error("Logout error:", error);
+      dispatch(setUser(null));
+      navigate("/login");
+    }
+  });
+
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+    } catch (error) {
+      console.error("Logout failed:", error);
+      dispatch(setUser(null));
+      navigate("/login");
+    }
   };
 
+
   useEffect(() => {
-    // Always scroll to show only the latest question-answer pair
     if (messages.length > 0) {
       const messagesContainer = document.querySelector('.messages-container');
       if (messagesContainer) {
-        // Calculate how much content we have
         const containerHeight = messagesContainer.clientHeight;
         const scrollHeight = messagesContainer.scrollHeight;
         
-        // If content is more than container, scroll to show only latest messages
         if (scrollHeight > containerHeight) {
-          // Scroll to bottom minus a bit to show only the latest conversation
           messagesContainer.scrollTop = scrollHeight - containerHeight + 100;
         }
       }
@@ -77,7 +91,6 @@ export const HomePage = () => {
     }
   };
 
-  // Set sample question and submit immediately
   const setAndSubmitQuestion = (question: string) => {
     if (loading) return;
     setInput(question);
@@ -123,7 +136,7 @@ export const HomePage = () => {
       <Sidebar />
 
       <div className="flex-1 flex flex-col">
-        {/* Header */}
+      
         <div className="flex items-center justify-between p-4 bg-gradient-to-b from-indigo-50/90 to-slate-50/90">
           <div className="flex items-center">
             <MessageSquare size={24} className="text-indigo-700 mr-2" />
@@ -137,7 +150,7 @@ export const HomePage = () => {
           </button>
         </div>
 
-        {/* Messages Area - Fixed height with scroll */}
+        
         <div className="flex-1 overflow-y-auto bg-gradient-to-b from-indigo-50/90 to-slate-50/90 pb-24">
           <div className="max-w-2xl mx-auto w-3/4 px-4">
             {messages.length === 0 ? (
@@ -179,7 +192,7 @@ export const HomePage = () => {
           </div>
         </div>
 
-        {/* Input Area - Fixed at bottom */}
+      
         <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-3/4 max-w-2xl">
           <form onSubmit={handleSubmit} className="flex items-center">
             <input

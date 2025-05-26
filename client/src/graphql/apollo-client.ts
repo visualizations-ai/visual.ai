@@ -1,9 +1,23 @@
-import { ApolloClient, InMemoryCache } from '@apollo/client';
+import { ApolloClient, InMemoryCache, createHttpLink } from '@apollo/client';
 import { getServerConfig } from '../config/server-config';
 
-const client = new ApolloClient({
+
+const httpLink = createHttpLink({
   uri: getServerConfig().graphqlUrl,
+  credentials: 'include', 
+});
+
+const client = new ApolloClient({
+  link: httpLink,
   cache: new InMemoryCache(),
+  defaultOptions: {
+    watchQuery: {
+      errorPolicy: 'all',
+    },
+    query: {
+      errorPolicy: 'all',
+    },
+  },
 });
 
 export default client;

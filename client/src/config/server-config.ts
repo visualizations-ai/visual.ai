@@ -8,8 +8,8 @@ export interface ServerConfig {
 
 let serverConfig: ServerConfig = {
   apiUrl: DEFAULT_SERVER_URL,
-  graphqlEndpoint: '/graphql',
-  graphqlUrl: `${DEFAULT_SERVER_URL}/graphql`
+  graphqlEndpoint: '/api/v1/graphql', 
+  graphqlUrl: `${DEFAULT_SERVER_URL}/api/v1/graphql` 
 };
 
 export const fetchServerConfig = async (): Promise<ServerConfig> => {
@@ -37,4 +37,4 @@ export const fetchServerConfig = async (): Promise<ServerConfig> => {
 
 export const getServerConfig = (): ServerConfig => {
   return serverConfig;
-}; 
+};

@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAppDispatch } from "../../hooks/redux-hooks";
 import { setUser } from "../../store/auth-slice";
+import { useMutation } from "@apollo/client";
+import { LOGIN_MUTATION } from "../../graphql/auth";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -11,8 +13,26 @@ const Login = () => {
     password: "",
   });
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // השימוש ב-Apollo useMutation hook
+  const [loginUser, { loading }] = useMutation(LOGIN_MUTATION, {
+    onCompleted: (data) => {
+      // כשה-mutation מצליח
+      const userData = {
+        id: data.loginUser.user.id,
+        email: data.loginUser.user.email,
+        role: "user" // אם צריך role, אפשר להוסיף לסכמה בשרת
+      };
+      
+      dispatch(setUser(userData));
+      navigate("/home");
+    },
+    onError: (error) => {
+      // כשיש שגיאה
+      setError(error.message || "Login failed");
+    }
+  });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -35,45 +55,19 @@ const Login = () => {
       return;
     }
     
-    setLoading(true);
-    
+    // קריאה ל-GraphQL mutation
     try {
-  
-      setTimeout(() => {
-       
-        const mockUsers = [
-          { id: "123", email: "test@example.com", password: "password123", role: "user" },
-        ];
-        
-        const user = mockUsers.find(
-          (u) => u.email === formData.email && u.password === formData.password
-        );
-        
-        if (user) {
-          const userData = {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-          };
-          
-          localStorage.setItem("user", JSON.stringify(userData));
-          
-          dispatch(setUser(userData));
-          
-          navigate("/home");
-        } else {
-          setError("Incorrect username or password");
+      await loginUser({
+        variables: {
+          email: formData.email,
+          password: formData.password
         }
-      }, 1000);
+      });
     } catch (err) {
-      setError("An error occurred during the login process. Please try again.");
-      console.error(err);
-    } finally {
-      setLoading(false);
+      console.error("Login error:", err);
     }
   };
 
-  // Input class with autofill style overrides
   const inputClass = "mt-1 w-full p-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-[#7B7EF4] focus:border-transparent autofill:bg-slate-900/50 autofill:text-white autofill:shadow-[inset_0_0_0px_1000px_rgba(15,23,42,0.5)]";
 
   return (
