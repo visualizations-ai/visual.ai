@@ -35,3 +35,7 @@ export interface AuthPayload {
   };
 }
 
+export interface SQLQueryData {
+  result: Record<string, unknown>[];
+  sql: string;
+}
