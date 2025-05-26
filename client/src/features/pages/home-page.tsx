@@ -4,6 +4,8 @@ import { MessageSquare, Send, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch } from "../../hooks/redux-hooks"; 
 import { setUser } from "../../store/auth-slice"; 
+import { useMutation } from "@apollo/client";
+import { LOGOUT_MUTATION } from "../../graphql/auth";
 
 export const HomePage = () => {
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
@@ -20,11 +22,28 @@ export const HomePage = () => {
     "Which products should we reorder this week based on sales forecasts"
   ];
 
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    dispatch(setUser(null));
-    navigate("/login");
+ const [logoutUser] = useMutation(LOGOUT_MUTATION, {
+    onCompleted: () => {
+      dispatch(setUser(null));
+      navigate("/login");
+    },
+    onError: (error) => {
+      console.error("Logout error:", error);
+      dispatch(setUser(null));
+      navigate("/login");
+    }
+  });
+
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+    } catch (error) {
+      console.error("Logout failed:", error);
+      dispatch(setUser(null));
+      navigate("/login");
+    }
   };
+
 
   useEffect(() => {
     if (messages.length > 0) {

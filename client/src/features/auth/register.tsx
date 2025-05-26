@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAppDispatch } from "../../hooks/redux-hooks";
 import { setUser } from "../../store/auth-slice";
+import { useMutation } from "@apollo/client";
+import { REGISTER_MUTATION } from "../../graphql/auth";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -12,9 +14,24 @@ const Register = () => {
     confirmPassword: "",
   });
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const [registerUser, { loading }] = useMutation(REGISTER_MUTATION, {
+    onCompleted: (data) => {
+      const userData = {
+        id: data.registerUser.user.id,
+        email: data.registerUser.user.email,
+        role: "user" 
+      };
+      
+      dispatch(setUser(userData));
+      navigate("/home");
+    },
+    onError: (error) => {
+      setError(error.message || "Registration failed");
+    }
+  });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -46,24 +63,19 @@ const Register = () => {
       return;
     }
     
-    setLoading(true);
-    
+
     try {
-      setTimeout(() => {
-        const newUser = {
-          id: Math.random().toString(36).substr(2, 9),
-          email: formData.email,
-          role: "user",
-        };
-        localStorage.setItem("user", JSON.stringify(newUser));
-        dispatch(setUser(newUser));
-        navigate("/home");
-      }, 1000);
+      await registerUser({
+        variables: {
+          user: {
+            email: formData.email,
+            password: formData.password
+          }
+        }
+      });
     } catch (err) {
-      setError("An error occurred during the registration process. Please try again.");
-      console.error(err);
-    } finally {
-      setLoading(false);
+      
+      console.error("Registration error:", err);
     }
   };
 
