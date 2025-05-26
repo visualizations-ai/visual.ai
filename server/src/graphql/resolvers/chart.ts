@@ -1,36 +1,59 @@
-import { IChart, ICreateChartInput, IUpdateChartInput } from '@/interfaces/chart.interface';
+import { IChart, ICreateChartInput, IUpdateChartInput, IPoint } from '@/interfaces/chart.interface';
 import { AppContext } from '@/interfaces/auth.interface';
 import { ChartService } from '../../services/chart.service';
 import { authenticateGraphQLRoute } from '@/utils/token-util';
 
 const chartService = new ChartService();
+
+function pointsToEntityData(points: IPoint[]): [number, number][] {
+  return points.map(point => [point.x, point.y]);
+}
+
+function entityDataToPoints(data: [number, number][]): IPoint[] {
+  return data.map(([x, y]) => ({ x, y }));
+}
+
 export const ChartResolvers = {
   Query: {
     async getChart(_: undefined, args: { id: string }, contextValue: AppContext): Promise<IChart> {
       const { req } = contextValue;
       authenticateGraphQLRoute(req);
 
-      const result: IChart = await chartService.getChart(args.id, `${req.currentUser?.userId}`);
-      return result;
+      const chartEntity = await chartService.getChart(args.id, `${req.currentUser?.userId}`);
+
+      return {
+        ...chartEntity,
+        data: entityDataToPoints(chartEntity.data)
+      };
+    },
+
+    async getCharts(_: undefined, __: undefined, contextValue: AppContext): Promise<IChart[]> {
+      const { req } = contextValue;
+      authenticateGraphQLRoute(req);
+
+      const charts = await chartService.getCharts(`${req.currentUser?.userId}`);
+      return charts.map(chart => ({
+        ...chart,
+        data: entityDataToPoints(chart.data)
+      }));
     }
   },
 
   Mutation: {
-    async createChart(_: undefined, args: { input: ICreateChartInput }, contextValue: AppContext): Promise<IChart> {
+    async createChart(
+      _: undefined, 
+      args: { input: ICreateChartInput }, 
+      contextValue: AppContext
+    ): Promise<IChart> {
       const { req } = contextValue;
       authenticateGraphQLRoute(req);
 
-      console.log('createChart called with input:', args.input);
-      console.log('Current user ID:', req.currentUser?.userId);
+      const chartEntity = await chartService.createChart(args.input, `${req.currentUser?.userId}`);
 
-      try {
-        const result: IChart = await chartService.createChart(args.input, `${req.currentUser?.userId}`);
-        console.log('Chart created successfully:', result);
-        return result;
-      } catch (error) {
-        console.error('Error in createChart:', error);
-        throw error;
-      }
+      return {
+        ...chartEntity,
+        data: entityDataToPoints(chartEntity.data)
+      };
     },
 
     async updateChart(
@@ -41,16 +64,21 @@ export const ChartResolvers = {
       const { req } = contextValue;
       authenticateGraphQLRoute(req);
 
-      const result: IChart = await chartService.updateChart(args.id, args.input, `${req.currentUser?.userId}`);
-      return result;
-    },
+      const updateInput = {
+        ...args.input,
+        data: args.input.data ? pointsToEntityData(args.input.data) : undefined
+      };
 
-    async deleteChart(_: undefined, args: { id: string }, contextValue: AppContext): Promise<{ message: string }> {
-      const { req } = contextValue;
-      authenticateGraphQLRoute(req);
+      const updatedChart = await chartService.updateChart(
+        args.id, 
+        updateInput, 
+        `${req.currentUser?.userId}`
+      );
 
-      await chartService.deleteChart(args.id, `${req.currentUser?.userId}`);
-      return { message: 'Chart deleted successfully' };
+      return {
+        ...updatedChart,
+        data: entityDataToPoints(updatedChart.data)
+      };
     }
   }
 };

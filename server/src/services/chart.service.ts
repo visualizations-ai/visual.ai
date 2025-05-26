@@ -28,10 +28,8 @@ export class ChartService {
   }
 
   async createChart(input: ICreateChartInput, userId: string): Promise<Chart> {
-    console.log('ChartService.createChart called with:', { input, userId });
-
-    if (!userId) {
-      throw new Error('userId is required');
+    if (!userId || !input.projectId) {
+      throw new Error('userId and projectId are required');
     }
 
     if (!input.name || !input.type || !input.data) {
@@ -39,32 +37,28 @@ export class ChartService {
     }
 
     const chartRepository = AppDataSource.getRepository(Chart);
-    console.log('Repository obtained:', !!chartRepository);
+    
+    const chartData = input.data.map(point => [point.x, point.y]) as [number, number][];
 
     const chart = chartRepository.create({
-      ...input,
-      userId: userId
+      name: input.name,
+      type: input.type,
+      data: chartData,
+      userId: userId,
+      projectId: input.projectId
     });
 
-    console.log('Chart created (before save):', chart);
-
-    // וודא שהמסד נתונים מחובר
-    if (!AppDataSource.isInitialized) {
-      throw new Error('Database is not initialized');
-    }
-
-    const savedChart = await chartRepository.save(chart);
-    console.log('Chart saved to database:', savedChart);
-
-    return savedChart;
+    return await chartRepository.save(chart);
   }
 
-  async updateChart(chartId: string, input: IUpdateChartInput, userId: string): Promise<Chart> {
+  async updateChart(chartId: string, input: Partial<Chart>, userId: string): Promise<Chart> {
     const chartRepository = AppDataSource.getRepository(Chart);
-    const chart = await this.getChart(chartId, userId);
+    const existingChart = await this.getChart(chartId, userId);
 
-    Object.assign(chart, input);
-    return await chartRepository.save(chart);
+    const { userId: _, projectId: __, ...updateData } = input;
+
+    Object.assign(existingChart, updateData);
+    return await chartRepository.save(existingChart);
   }
 
   async deleteChart(chartId: string, userId: string): Promise<boolean> {

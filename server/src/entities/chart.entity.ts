@@ -1,6 +1,16 @@
-import { Entity, PrimaryGeneratedColumn, Column } from "typeorm";
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+} from "typeorm";
 
 @Entity()
+@Index(['userId'])
+@Index(['projectId'])
+@Index(['userId', 'projectId']) 
 export class Chart {
   @PrimaryGeneratedColumn("uuid")
   id: string;
@@ -11,9 +21,18 @@ export class Chart {
   @Column()
   type: string;
 
-  @Column("float", { array: true }) 
-  data: number[];
+  @Column("json")
+  data: [number, number][]; 
 
   @Column()
   userId: string;
+
+  @Column()
+  projectId: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }
