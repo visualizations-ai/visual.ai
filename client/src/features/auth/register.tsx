@@ -61,7 +61,7 @@ const Register = () => {
     }));
   };
 
-  // Password validation checks
+
   const hasMinLength = formData.password.length >= 7;
   const hasLowercase = /[a-z]/.test(formData.password);
   const hasNumber = /\d/.test(formData.password);
@@ -75,20 +75,12 @@ const Register = () => {
       <div className="bg-slate-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-xl shadow-indigo-500/10 w-full max-w-md border border-indigo-400/20">
         <h1 className="text-2xl font-bold mb-6 text-center bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 to-purple-400">Register to Visual.AI</h1>
    
-        {error && (
+       
+        {error && !passwordMismatch && (
           <div className="bg-amber-900/20 border border-amber-400/30 text-amber-200 px-4 py-3 rounded-lg mb-4 flex items-start gap-3">
             <AlertTriangle size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="text-sm font-medium">{error}</p>
-            </div>
-          </div>
-        )}
-
-        {passwordMismatch && (
-          <div className="bg-amber-900/20 border border-amber-400/30 text-amber-200 px-4 py-3 rounded-lg mb-4 flex items-start gap-3">
-            <AlertTriangle size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-medium">Passwords do not match</p>
             </div>
           </div>
         )}
@@ -150,7 +142,6 @@ const Register = () => {
               </button>
             </div>
             
-            {/* Password requirements - show only unfulfilled requirements */}
             {formData.password && (
               <div className="mt-2 space-y-1">
                 {!hasMinLength && (
@@ -213,7 +204,6 @@ const Register = () => {
               </button>
             </div>
             
-            {/* Password match indicator */}
             {formData.confirmPassword && (
               <div className={`mt-2 flex items-center gap-2 text-xs ${passwordsMatch ? 'text-green-400' : 'text-amber-400'}`}>
                 {passwordsMatch ? <CheckCircle2 size={12} /> : <Info size={12} />}
