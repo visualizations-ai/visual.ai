@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/tool
 import client from '../graphql/apollo-client';
 import { LOGIN_MUTATION, REGISTER_MUTATION, CHECK_CURRENT_USER, LOGOUT_MUTATION } from '../graphql/auth';
 
-// ====== TYPES ======
+
 interface User {
   id: string;
   email: string;
@@ -25,7 +25,7 @@ interface AuthState {
   error: string | null;
 }
 
-// ====== INITIAL STATE ======
+
 const initialState: AuthState = {
   user: null,
   projectIds: [],
@@ -35,7 +35,7 @@ const initialState: AuthState = {
   error: null
 };
 
-// ====== ASYNC ACTIONS ======
+
 
 export const loginUser = createAsyncThunk(
   'auth/login',
@@ -113,7 +113,7 @@ export const logoutUser = createAsyncThunk(
   }
 );
 
-// ====== SLICE ======
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -140,7 +140,6 @@ const authSlice = createSlice({
     }
   },
   extraReducers: (builder) => {
-    // ====== LOGIN ======
     builder
       .addCase(loginUser.pending, (state) => {
         console.log('Login pending...');
@@ -170,7 +169,6 @@ const authSlice = createSlice({
         state.user = null;
       });
 
-    // ====== REGISTER ======
     builder
       .addCase(registerUser.pending, (state) => {
         console.log('Register pending...');
@@ -200,7 +198,7 @@ const authSlice = createSlice({
         state.user = null;
       });
 
-    // ====== CHECK CURRENT USER ======
+ 
     builder
       .addCase(checkCurrentUser.pending, () => {
         console.log('Check user pending...');
@@ -228,7 +226,6 @@ const authSlice = createSlice({
         state.error = null;
       });
 
-    // ====== LOGOUT ======
     builder
       .addCase(logoutUser.pending, () => {
         console.log('Logout pending...');
