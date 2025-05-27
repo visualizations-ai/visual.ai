@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '../hooks/redux-hooks';
-import { setUser } from '../store/auth-slice'; 
+import { checkCurrentUser } from '../store/auth-slice'; 
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -16,10 +16,20 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const location = useLocation();
   const dispatch = useAppDispatch();
+  
+ 
+  
   const { isAuthenticated, user, loading } = useAppSelector(state => state.auth);
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   
   useEffect(() => {
+ 
+    if (!isAuthenticated && !loading) {
+      dispatch(checkCurrentUser());
+      return;
+    }
+    
+  
     if (loading) return;
 
     if (!isAuthenticated || !user) {
@@ -27,9 +37,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       return;
     }
 
-    localStorage.setItem('user', JSON.stringify(user));
-
-    dispatch(setUser(user));
+  
 
     if (roles.length === 0) {
       setIsAuthorized(true);
