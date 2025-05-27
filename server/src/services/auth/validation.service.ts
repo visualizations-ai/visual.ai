@@ -1,4 +1,4 @@
-
+// server/src/services/auth/validation.service.ts
 import { User } from "@/entities/user.entity";
 import { Auth } from "@/interfaces/auth.interface";
 import { GraphQLError } from "graphql";
@@ -11,24 +11,27 @@ export const validateUser = async (
   type: 'register' | 'login'
 ): Promise<void> => {
 
+  // Basic input validation
   if (!validator.isEmail(input.email)) {
-    throw new GraphQLError('Invalid email format');
+    throw new GraphQLError('Invalid credentials. Please check your details and try again.');
   }
 
   if (input.password.length < 7) {
-    throw new GraphQLError('Password must be at least 7 characters.');
+    throw new GraphQLError('Invalid credentials. Please check your details and try again.');
   }
 
   if (!/(?=.*[a-z])(?=.*\d)/.test(input.password)) {
-    throw new GraphQLError('Password must contain at least one lowercase letter and one number.');
+    throw new GraphQLError('Invalid credentials. Please check your details and try again.');
   }
 
+  // For registration, check if user already exists
   if (type === 'register') {
     const existingUser = await userRepository.findOne({
       where: { email: input.email }
     });
     if (existingUser) {
-      throw new GraphQLError('Invalid credentials');
+      // Security: Don't reveal that the email is already registered
+      throw new GraphQLError('Registration failed. Please check your details and try again.');
     }
   }
 };

@@ -2,12 +2,12 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../hooks/redux-hooks";
 import { loginUser, clearError } from "../../store/auth-slice";
+import { AlertTriangle, Info } from "lucide-react";
 
 const Login = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   
-
   const { loading, error, isAuthenticated } = useAppSelector(state => state.auth);
   
   const [formData, setFormData] = useState({
@@ -21,7 +21,6 @@ const Login = () => {
       navigate("/home");
     }
   }, [isAuthenticated, navigate]);
-
 
   useEffect(() => {
     dispatch(clearError());
@@ -46,7 +45,6 @@ const Login = () => {
       return;
     }
     
-  
     dispatch(loginUser({
       email: formData.email,
       password: formData.password
@@ -61,8 +59,25 @@ const Login = () => {
         <h1 className="text-2xl font-bold mb-6 text-center bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 to-purple-400">Login to Visual.AI</h1>
         
         {error && (
-          <div className="bg-red-900/50 border border-red-400/20 text-red-200 px-4 py-3 rounded mb-4">
-            {error}
+          <div className="bg-amber-900/20 border border-amber-400/30 text-amber-200 px-4 py-3 rounded-lg mb-4 flex items-start gap-3">
+            <AlertTriangle size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium">{error}</p>
+              <div className="mt-2 text-xs text-amber-300/80 space-y-1">
+                <div className="flex items-center gap-2">
+                  <Info size={12} />
+                  <span>Make sure email and password are correct</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Info size={12} />
+                  <span>Password must be at least 7 characters</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Info size={12} />
+                  <span>Password must contain lowercase letter and number</span>
+                </div>
+              </div>
+            </div>
           </div>
         )}
         
@@ -81,6 +96,7 @@ const Login = () => {
                 WebkitBoxShadow: "0 0 0 1000px rgba(15, 23, 42, 0.5) inset", 
                 WebkitTextFillColor: "white"
               }}
+              dir="ltr"
             />
           </div>
           
@@ -99,6 +115,7 @@ const Login = () => {
                   WebkitBoxShadow: "0 0 0 1000px rgba(15, 23, 42, 0.5) inset", 
                   WebkitTextFillColor: "white"
                 }}
+                dir="ltr"
               />
               <button 
                 type="button" 

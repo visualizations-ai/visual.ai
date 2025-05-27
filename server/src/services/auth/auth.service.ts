@@ -1,4 +1,4 @@
-
+// server/src/services/auth/auth.service.ts
 import { AppDataSource } from "@/database/config";
 import { User } from "@/entities/user.entity";
 import { AppContext, ActiveProject, Auth, DataSource, TokenPayload } from "@/interfaces/auth.interface";
@@ -15,7 +15,7 @@ export const register = async (input: Auth, context: AppContext): Promise<AuthPa
   const { email, password } = input;
   const { req } = context;
 
- await validateUser(input, userRepository, 'register');
+  await validateUser(input, userRepository, 'register');
 
   const hashedPassword = await hashPassword(password);
   const user = userRepository.create({ email, password: hashedPassword });
@@ -44,16 +44,19 @@ export const login = async (input: Auth, context: AppContext): Promise<AuthPaylo
   const { email, password } = input;
   const { req } = context;
 
-   await validateUser(input, userRepository, 'login');
+  // First validate the input format
+  await validateUser(input, userRepository, 'login');
 
   const user = await userRepository.findOne({ where: { email } });
+  
+  // Security: Use generic error message for both invalid email and password
   if (!user) {
-    throw new GraphQLError('Invalid credentials');
+    throw new GraphQLError('Invalid credentials. Please check your details and try again.');
   }
 
   const isPasswordValid = await verifyPassword(password, user.password);
   if (!isPasswordValid) {
-    throw new GraphQLError('Invalid credentials');
+    throw new GraphQLError('Invalid credentials. Please check your details and try again.');
   }
 
   const dataSources = await DatasourceService.getDataSources(`${user.id}`);

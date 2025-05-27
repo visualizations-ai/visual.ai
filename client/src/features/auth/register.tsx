@@ -2,12 +2,12 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../hooks/redux-hooks";
 import { registerUser, clearError } from "../../store/auth-slice";
+import { AlertTriangle, Info, CheckCircle2 } from "lucide-react";
 
 const Register = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   
-
   const { loading, error, isAuthenticated } = useAppSelector(state => state.auth);
   
   const [formData, setFormData] = useState({
@@ -18,13 +18,11 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-
   useEffect(() => {
     if (isAuthenticated) {
       navigate("/home");
     }
   }, [isAuthenticated, navigate]);
-
 
   useEffect(() => {
     dispatch(clearError());
@@ -54,18 +52,21 @@ const Register = () => {
     }
     
     if (formData.password !== formData.confirmPassword) {
-      alert("Passwords do not match");
       return;
     }
     
-   
     dispatch(registerUser({
       email: formData.email,
       password: formData.password
     }));
-    
-    
   };
+
+  // Password validation checks
+  const hasMinLength = formData.password.length >= 7;
+  const hasLowercase = /[a-z]/.test(formData.password);
+  const hasNumber = /\d/.test(formData.password);
+  const passwordsMatch = formData.password === formData.confirmPassword && formData.confirmPassword !== "";
+  const passwordMismatch = formData.confirmPassword !== "" && formData.password !== formData.confirmPassword;
 
   const inputClass = "mt-1 w-full p-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-[#7B7EF4] focus:border-transparent autofill:bg-slate-900/50 autofill:text-white autofill:shadow-[inset_0_0_0px_1000px_rgba(15,23,42,0.5)]";
 
@@ -75,8 +76,20 @@ const Register = () => {
         <h1 className="text-2xl font-bold mb-6 text-center bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 to-purple-400">Register to Visual.AI</h1>
    
         {error && (
-          <div className="bg-red-900/50 border border-red-400/20 text-red-200 px-4 py-3 rounded mb-4">
-            {error}
+          <div className="bg-amber-900/20 border border-amber-400/30 text-amber-200 px-4 py-3 rounded-lg mb-4 flex items-start gap-3">
+            <AlertTriangle size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {passwordMismatch && (
+          <div className="bg-amber-900/20 border border-amber-400/30 text-amber-200 px-4 py-3 rounded-lg mb-4 flex items-start gap-3">
+            <AlertTriangle size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium">Passwords do not match</p>
+            </div>
           </div>
         )}
         
@@ -90,11 +103,12 @@ const Register = () => {
               onChange={handleChange}
               className={inputClass}
               required
-              disabled={loading} 
+              disabled={loading}
               style={{
                 WebkitBoxShadow: "0 0 0 1000px rgba(15, 23, 42, 0.5) inset", 
                 WebkitTextFillColor: "white"
               }}
+              dir="ltr"
             />
           </div>
           
@@ -108,18 +122,19 @@ const Register = () => {
                 onChange={handleChange}
                 className={inputClass}
                 required
-                minLength={6}
-                disabled={loading} 
+                minLength={7}
+                disabled={loading}
                 style={{
                   WebkitBoxShadow: "0 0 0 1000px rgba(15, 23, 42, 0.5) inset", 
                   WebkitTextFillColor: "white"
                 }}
+                dir="ltr"
               />
               <button 
                 type="button" 
                 onClick={togglePasswordVisibility}
                 className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                disabled={loading} 
+                disabled={loading}
               >
                 {showPassword ? (
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-300" viewBox="0 0 20 20" fill="currentColor">
@@ -134,6 +149,30 @@ const Register = () => {
                 )}
               </button>
             </div>
+            
+            {/* Password requirements - show only unfulfilled requirements */}
+            {formData.password && (
+              <div className="mt-2 space-y-1">
+                {!hasMinLength && (
+                  <div className="flex items-center gap-2 text-xs text-amber-400">
+                    <Info size={12} />
+                    <span>At least 7 characters</span>
+                  </div>
+                )}
+                {!hasLowercase && (
+                  <div className="flex items-center gap-2 text-xs text-amber-400">
+                    <Info size={12} />
+                    <span>At least one lowercase letter</span>
+                  </div>
+                )}
+                {!hasNumber && (
+                  <div className="flex items-center gap-2 text-xs text-amber-400">
+                    <Info size={12} />
+                    <span>At least one number</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           
           <div>
@@ -146,12 +185,13 @@ const Register = () => {
                 onChange={handleChange}
                 className={inputClass}
                 required
-                minLength={6}
-                disabled={loading} 
+                minLength={7}
+                disabled={loading}
                 style={{
                   WebkitBoxShadow: "0 0 0 1000px rgba(15, 23, 42, 0.5) inset", 
                   WebkitTextFillColor: "white"
                 }}
+                dir="ltr"
               />
               <button 
                 type="button" 
@@ -172,14 +212,21 @@ const Register = () => {
                 )}
               </button>
             </div>
+            
+            {/* Password match indicator */}
+            {formData.confirmPassword && (
+              <div className={`mt-2 flex items-center gap-2 text-xs ${passwordsMatch ? 'text-green-400' : 'text-amber-400'}`}>
+                {passwordsMatch ? <CheckCircle2 size={12} /> : <Info size={12} />}
+                <span>{passwordsMatch ? 'Passwords match' : 'Passwords do not match'}</span>
+              </div>
+            )}
           </div>
           
-        
           <button
             type="submit"
-            disabled={loading || !formData.email || !formData.password || !formData.confirmPassword}
+            disabled={loading || !formData.email || !formData.password || !formData.confirmPassword || passwordMismatch}
             className={`w-full text-white py-2 rounded-lg transition ${
-              loading || !formData.email || !formData.password || !formData.confirmPassword
+              loading || !formData.email || !formData.password || !formData.confirmPassword || passwordMismatch
                 ? "bg-[#7B7EF4]/50 cursor-not-allowed" 
                 : "bg-[#7B7EF4] hover:bg-[#6B6EE4]"
             } shadow-lg shadow-[#7B7EF4]/20`}
