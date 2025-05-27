@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../hooks/redux-hooks";
 import { loginUser, clearError } from "../../store/auth-slice";
-import { AlertTriangle, Info } from "lucide-react";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -59,21 +58,31 @@ const Login = () => {
         <h1 className="text-2xl font-bold mb-6 text-center bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 to-purple-400">Login to Visual.AI</h1>
         
         {error && (
-          <div className="bg-amber-900/20 border border-amber-400/30 text-amber-200 px-4 py-3 rounded-lg mb-4 flex items-start gap-3">
-            <AlertTriangle size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
+          <div className="bg-red-900/20 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg mb-4 flex items-start gap-3">
+            <div className="flex-shrink-0 mt-0.5">
+              <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
             <div className="flex-1">
               <p className="text-sm font-medium">{error}</p>
-              <div className="mt-2 text-xs text-amber-300/80 space-y-1">
+              <div className="mt-2 text-xs text-red-300/80 space-y-1">
                 <div className="flex items-center gap-2">
-                  <Info size={12} />
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
                   <span>Make sure email and password are correct</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Info size={12} />
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
                   <span>Password must be at least 7 characters</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Info size={12} />
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
                   <span>Password must contain lowercase letter and number</span>
                 </div>
               </div>
