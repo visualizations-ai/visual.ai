@@ -130,7 +130,15 @@ export const HomePage = () => {
 					</div>
 					<button
 						onClick={handleLogout}
-						className="px-4 py-1.5 text-sm bg-[#7B7EF4] text-white rounded-full hover:bg-[#6B6EE4] transition-colors"
+						className="
+    px-4 py-1.5 
+    text-sm 
+    text-white 
+    rounded-full 
+    bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900
+    hover:opacity-90
+    transition-all
+  "
 					>
 						Logout
 					</button>
@@ -143,25 +151,39 @@ export const HomePage = () => {
 								<p className="text-xl font-medium">
 									Send a message to start conversation
 								</p>
-
-								{/* Sample questions between title and input */}
-								<div className="flex flex-wrap justify-center gap-4 max-w-4xl w-full">
+								<div className="flex flex-wrap justify-center gap-4 max-w-2xl w-full mx-auto">
 									{sampleQuestions.map((question, index) => (
 										<button
 											key={index}
 											onClick={() => setAndSubmitQuestion(question)}
-											className="p-3 bg-white border border-indigo-100 rounded-lg shadow-sm hover:bg-indigo-50/80 hover:border-indigo-200 transition-colors text-sm text-slate-700 text-center w-[160px] h-[80px] flex items-center justify-center"
+											className="
+        p-6
+        bg-white 
+        border border-indigo-100 
+        rounded-lg 
+        shadow-sm 
+        hover:bg-indigo-50/80 
+        hover:border-indigo-200 
+        transition-colors 
+        text-xs
+        text-slate-700 
+        text-center 
+        w-[152px]          
+        h-[100px]
+        flex items-center justify-center
+        leading-tight
+        px-3
+      "
 										>
 											{question}
 										</button>
 									))}
 								</div>
 
-								{/* Input section - narrower width, taller height */}
 								<div className="w-full max-w-2xl">
-									<div 
+									<div
 										className="rounded-xl p-[1px] transition-all duration-300"
-										style={{ background: 'rgb(199 210 254)' }}
+										style={{ background: "rgb(199 210 254)" }}
 										id="input-container"
 									>
 										<form onSubmit={handleSubmit} className="relative">
@@ -172,42 +194,30 @@ export const HomePage = () => {
 												placeholder="Type your message..."
 												disabled={loading}
 												className={`
-									w-full py-6 px-4 pr-14
-									rounded-xl
-									bg-white
-									text-indigo-600
-									placeholder-indigo-400
-									border-none
-									outline-none
-									shadow-lg
-									transition-all duration-300
-									text-base
-									${loading ? "opacity-50 cursor-not-allowed" : ""}
-								`}
-												onFocus={(e) => {
-													const container = document.getElementById('input-container');
-													if (container) {
-														container.style.background = 'linear-gradient(135deg, #8B5CF6, #6366F1, #3B82F6)';
-													}
-												}}
-												onBlur={(e) => {
-													const container = document.getElementById('input-container');
-													if (container) {
-														container.style.background = 'rgb(199 210 254)';
-													}
-												}}
+    w-full py-6 px-4 pr-14
+    rounded-xl
+    bg-white
+    text-slate-900         
+    placeholder-slate-600  
+    border-none
+    outline-none
+    shadow-lg
+    transition-all duration-300
+    text-base
+    ${loading ? "opacity-50 cursor-not-allowed" : ""}
+  `}
 											/>
 											<button
 												type="submit"
 												disabled={loading || !input.trim()}
 												className={`
-									absolute right-4 top-1/2 transform -translate-y-1/2
-									text-indigo-600
-									hover:text-indigo-700
-									transition-colors
-									disabled:opacity-50
-									disabled:cursor-not-allowed
-								`}
+    absolute right-4 top-1/2 transform -translate-y-1/2
+    text-slate-900        
+    hover:text-slate-700  
+    transition-colors
+    disabled:opacity-50
+    disabled:cursor-not-allowed
+  `}
 											>
 												{loading ? (
 													<Loader2 className="w-6 h-6 animate-spin" />
@@ -220,43 +230,45 @@ export const HomePage = () => {
 								</div>
 							</div>
 						) : (
-							<div className="pt-4 space-y-2">
-								{messages.map((msg, idx) => (
-									<div key={idx} className="mb-1" data-message-index={idx}>
-										{msg.role === "user" ? (
-											<div className="flex justify-end mb-1">
-												<div className="bg-indigo-300 text-white p-2 rounded-lg text-sm max-w-[80%]">
-													{msg.content}
-												</div>
+							<div className="h-[calc(100vh-200px)] overflow-y-auto px-4">
+								<div className="max-w-4xl mx-auto">
+									<div className="pt-4 space-y-4 flex flex-col">
+										{messages.map((msg, idx) => (
+											<div key={idx} className="mb-4" data-message-index={idx}>
+												{msg.role === "user" ? (
+													<div className="flex justify-end mb-2">
+														<div className="bg-indigo-300 text-white p-3 rounded-lg text-sm max-w-[80%]">
+															{msg.content}
+														</div>
+													</div>
+												) : (
+													<div className="flex justify-center mb-3">
+														<div
+															className={`
+                  text-indigo-700 text-sm p-4 
+                  bg-white/80 rounded-lg shadow-sm 
+                  max-w-[80%] 
+                  ${loading ? "animate-pulse" : ""}
+                `}
+														>
+															{msg.content}
+														</div>
+													</div>
+												)}
 											</div>
-										) : (
-											<div className="flex justify-center mb-2">
-												<div
-													className={`
-                          text-indigo-700 text-sm p-3 
-                          bg-white/80 rounded-lg shadow-sm 
-                          max-w-[80%] 
-                          ${loading ? "animate-pulse" : ""}
-                        `}
-												>
-													{msg.content}
-												</div>
-											</div>
-										)}
+										))}
+										<div className="h-32" /> {/* Spacer at the bottom */}
 									</div>
-								))}
-								<div ref={messagesEndRef} />
+								</div>
 							</div>
 						)}
 					</div>
 				</div>
-
-				{/* Input section for when there are messages - stays at bottom */}
 				{messages.length > 0 && (
 					<div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4">
-						<div 
+						<div
 							className="rounded-xl p-[1px] transition-all duration-300"
-							style={{ background: 'rgb(199 210 254)' }}
+							style={{ background: "rgb(199 210 254)" }}
 							id="input-container-bottom"
 						>
 							<form onSubmit={handleSubmit} className="relative">
@@ -270,8 +282,8 @@ export const HomePage = () => {
 						w-full py-6 px-4 pr-14
 						rounded-xl
 						bg-white
-						text-indigo-600
-						placeholder-indigo-400
+						text-slate-900         // שינוי לצבע כהה של הסיידבר
+						placeholder-slate-600  // שינוי placeholder לגוון כהה יותר
 						border-none
 						outline-none
 						shadow-lg
@@ -280,15 +292,20 @@ export const HomePage = () => {
 						${loading ? "opacity-50 cursor-not-allowed" : ""}
 					`}
 									onFocus={(e) => {
-										const container = document.getElementById('input-container-bottom');
+										const container = document.getElementById(
+											"input-container-bottom"
+										);
 										if (container) {
-											container.style.background = 'linear-gradient(135deg, #8B5CF6, #6366F1, #3B82F6)';
+											container.style.background =
+												"linear-gradient(135deg, #8B5CF6, #6366F1, #3B82F6)";
 										}
 									}}
 									onBlur={(e) => {
-										const container = document.getElementById('input-container-bottom');
+										const container = document.getElementById(
+											"input-container-bottom"
+										);
 										if (container) {
-											container.style.background = 'rgb(199 210 254)';
+											container.style.background = "rgb(199 210 254)";
 										}
 									}}
 								/>
@@ -297,8 +314,8 @@ export const HomePage = () => {
 									disabled={loading || !input.trim()}
 									className={`
 						absolute right-4 top-1/2 transform -translate-y-1/2
-						text-indigo-600
-						hover:text-indigo-700
+						text-slate-900        // שינוי לצבע כהה של הסיידבר
+						hover:text-slate-700  // שינוי hover לגוון בהיר יותר
 						transition-colors
 						disabled:opacity-50
 						disabled:cursor-not-allowed
