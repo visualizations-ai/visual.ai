@@ -17,7 +17,7 @@ export const HomePage = () => {
 
 	const sampleQuestions = [
 		"What is the current stock level of our best-selling products",
-		"Which customers haven't made a purchase in the last three months ",
+		"Which customers haven't made a purchase in the last three months",
 		"Are there any budget overruns in this month's expenses",
 		"Which products should we reorder this week based on sales forecasts",
 	];
@@ -33,27 +33,16 @@ export const HomePage = () => {
 	};
 
 	useEffect(() => {
-		if (messages.length > 0) {
-			const messagesContainer = document.querySelector(".messages-container");
-			if (messagesContainer) {
-				const containerHeight = messagesContainer.clientHeight;
-				const scrollHeight = messagesContainer.scrollHeight;
-
-				if (scrollHeight > containerHeight) {
-					messagesContainer.scrollTop = scrollHeight - containerHeight + 100;
-				}
-			}
-		}
+		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 	}, [messages]);
 
-	const handleSubmit = async (e?: React.FormEvent) => {
-		if (e) {
-			e.preventDefault();
-		}
+	const handleSubmit = async (e?: React.FormEvent, customInput?: string) => {
+		if (e) e.preventDefault();
+		const finalInput = customInput ?? input;
 
-		if (!input.trim() || loading) return;
+		if (!finalInput.trim() || loading) return;
 
-		const userMessage = { role: "user", content: input };
+		const userMessage = { role: "user", content: finalInput };
 		setMessages((prev) => [...prev, userMessage]);
 		setInput("");
 		setLoading(true);
@@ -62,7 +51,7 @@ export const HomePage = () => {
 			const res = await fetch("http://localhost:3000/api/ask", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ question: input }),
+				body: JSON.stringify({ question: finalInput }),
 			});
 
 			const data = await res.json();
@@ -80,48 +69,13 @@ export const HomePage = () => {
 
 	const setAndSubmitQuestion = (question: string) => {
 		if (loading) return;
-		setInput(question);
-
-		setTimeout(() => {
-			const userMessage = { role: "user", content: question };
-			setMessages((prev) => [...prev, userMessage]);
-			setInput("");
-			setLoading(true);
-
-			try {
-				fetch("http://localhost:3000/api/ask", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ question }),
-				})
-					.then((res) => res.json())
-					.then((data) => {
-						const botMessage = { role: "bot", content: data.answer };
-						setMessages((prev) => [...prev, botMessage]);
-					})
-					.catch((err) => {
-						setMessages((prev) => [
-							...prev,
-							{ role: "bot", content: "error: " + (err as Error).message },
-						]);
-					})
-					.finally(() => {
-						setLoading(false);
-					});
-			} catch (err) {
-				setMessages((prev) => [
-					...prev,
-					{ role: "bot", content: "error: " + (err as Error).message },
-				]);
-				setLoading(false);
-			}
-		}, 0);
+		setInput("");
+		handleSubmit(undefined, question);
 	};
 
 	return (
 		<div className="flex h-screen bg-gradient-to-br from-slate-100 via-indigo-50 to-slate-100">
 			<Sidebar />
-
 			<div className="flex-1 flex flex-col">
 				<div className="flex items-center justify-between p-4 bg-gradient-to-b from-indigo-50/90 to-slate-50/90">
 					<div className="flex items-center">
@@ -130,22 +84,13 @@ export const HomePage = () => {
 					</div>
 					<button
 						onClick={handleLogout}
-						className="
-    px-4 py-1.5 
-    text-sm 
-    text-white 
-    rounded-full 
-    bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900
-    hover:opacity-90
-    transition-all
-  "
+						className="px-4 py-1.5 text-sm text-white rounded-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 hover:opacity-90 transition-all"
 					>
 						Logout
 					</button>
 				</div>
-
 				<div className="flex-1 overflow-y-auto bg-gradient-to-b from-indigo-50/90 to-slate-50/90 pb-24">
-					<div className="max-w-4xl mx-auto px-4">
+					<div className="max-w-4xl mx-auto pl-2">
 						{messages.length === 0 ? (
 							<div className="flex flex-col items-center justify-center min-h-[500px] text-slate-700 space-y-8">
 								<p className="text-xl font-medium">
@@ -156,35 +101,16 @@ export const HomePage = () => {
 										<button
 											key={index}
 											onClick={() => setAndSubmitQuestion(question)}
-											className="
-        p-6
-        bg-white 
-        border border-indigo-100 
-        rounded-lg 
-        shadow-sm 
-        hover:bg-indigo-50/80 
-        hover:border-indigo-200 
-        transition-colors 
-        text-xs
-        text-slate-700 
-        text-center 
-        w-[152px]          
-        h-[100px]
-        flex items-center justify-center
-        leading-tight
-        px-3
-      "
+											className="p-6 bg-white border border-indigo-100 rounded-lg shadow-sm hover:bg-indigo-50/80 hover:border-indigo-200 transition-colors text-xs text-slate-700 text-center w-[152px] h-[100px] flex items-center justify-center leading-tight px-3"
 										>
 											{question}
 										</button>
 									))}
 								</div>
-
 								<div className="w-full max-w-2xl">
 									<div
-										className="rounded-xl p-[1px] transition-all duration-300"
+										className="rounded-xl p-[1px]"
 										style={{ background: "rgb(199 210 254)" }}
-										id="input-container"
 									>
 										<form onSubmit={handleSubmit} className="relative">
 											<input
@@ -193,31 +119,14 @@ export const HomePage = () => {
 												onChange={(e) => setInput(e.target.value)}
 												placeholder="Type your message..."
 												disabled={loading}
-												className={`
-    w-full py-6 px-4 pr-14
-    rounded-xl
-    bg-white
-    text-slate-900         
-    placeholder-slate-600  
-    border-none
-    outline-none
-    shadow-lg
-    transition-all duration-300
-    text-base
-    ${loading ? "opacity-50 cursor-not-allowed" : ""}
-  `}
+												className={`w-full py-6 px-4 pr-14 rounded-xl bg-white text-slate-900 placeholder-slate-600 border-none outline-none shadow-lg transition-all text-base ${
+													loading ? "opacity-50 cursor-not-allowed" : ""
+												}`}
 											/>
 											<button
 												type="submit"
 												disabled={loading || !input.trim()}
-												className={`
-    absolute right-4 top-1/2 transform -translate-y-1/2
-    text-slate-900        
-    hover:text-slate-700  
-    transition-colors
-    disabled:opacity-50
-    disabled:cursor-not-allowed
-  `}
+												className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-900 hover:text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
 											>
 												{loading ? (
 													<Loader2 className="w-6 h-6 animate-spin" />
@@ -230,34 +139,36 @@ export const HomePage = () => {
 								</div>
 							</div>
 						) : (
-							<div className="h-[calc(100vh-200px)] overflow-y-auto px-4">
-								<div className="max-w-4xl mx-auto">
-									<div className="pt-4 space-y-4 flex flex-col">
+							<div className="h-[calc(100vh-200px)] overflow-y-auto messages-container">
+								<div className="max-w-2xl">
+									<div className="pt-4 space-y-4 flex flex-col pl-2">
 										{messages.map((msg, idx) => (
-											<div key={idx} className="mb-4" data-message-index={idx}>
+											<div key={idx} className="animate-fade-in px-4">
 												{msg.role === "user" ? (
-													<div className="flex justify-end mb-2">
-														<div className="bg-indigo-300 text-white p-3 rounded-lg text-sm max-w-[80%]">
-															{msg.content}
+													<div className="flex flex-col space-y-2">
+														<div className="flex justify-end">
+															<div className="bg-indigo-300 text-white p-3 rounded-lg text-sm max-w-[50%]">
+																{msg.content}
+															</div>
 														</div>
+														{messages[idx + 1]?.role === "bot" && (
+															<div className="flex justify-end">
+																<div
+																	className={`text-slate-700 text-sm p-3 bg-white rounded-lg shadow-sm max-w-[50%] ${
+																		loading && idx === messages.length - 2
+																			? "animate-pulse"
+																			: ""
+																	}`}
+																>
+																	{messages[idx + 1].content}
+																</div>
+															</div>
+														)}
 													</div>
-												) : (
-													<div className="flex justify-center mb-3">
-														<div
-															className={`
-                  text-indigo-700 text-sm p-4 
-                  bg-white/80 rounded-lg shadow-sm 
-                  max-w-[80%] 
-                  ${loading ? "animate-pulse" : ""}
-                `}
-														>
-															{msg.content}
-														</div>
-													</div>
-												)}
+												) : null}
 											</div>
 										))}
-										<div className="h-32" /> {/* Spacer at the bottom */}
+										<div ref={messagesEndRef} className="h-4" />
 									</div>
 								</div>
 							</div>
@@ -265,7 +176,7 @@ export const HomePage = () => {
 					</div>
 				</div>
 				{messages.length > 0 && (
-					<div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4">
+					<div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4">
 						<div
 							className="rounded-xl p-[1px] transition-all duration-300"
 							style={{ background: "rgb(199 210 254)" }}
@@ -278,48 +189,29 @@ export const HomePage = () => {
 									onChange={(e) => setInput(e.target.value)}
 									placeholder="Type your message..."
 									disabled={loading}
-									className={`
-						w-full py-6 px-4 pr-14
-						rounded-xl
-						bg-white
-						text-slate-900         // שינוי לצבע כהה של הסיידבר
-						placeholder-slate-600  // שינוי placeholder לגוון כהה יותר
-						border-none
-						outline-none
-						shadow-lg
-						transition-all duration-300
-						text-base
-						${loading ? "opacity-50 cursor-not-allowed" : ""}
-					`}
-									onFocus={(e) => {
+									className={`w-full py-6 px-4 pr-14 rounded-xl bg-white text-slate-900 placeholder-slate-600 border-none outline-none shadow-lg transition-all text-base ${
+										loading ? "opacity-50 cursor-not-allowed" : ""
+									}`}
+									onFocus={() => {
 										const container = document.getElementById(
 											"input-container-bottom"
 										);
-										if (container) {
+										if (container)
 											container.style.background =
 												"linear-gradient(135deg, #8B5CF6, #6366F1, #3B82F6)";
-										}
 									}}
-									onBlur={(e) => {
+									onBlur={() => {
 										const container = document.getElementById(
 											"input-container-bottom"
 										);
-										if (container) {
+										if (container)
 											container.style.background = "rgb(199 210 254)";
-										}
 									}}
 								/>
 								<button
 									type="submit"
 									disabled={loading || !input.trim()}
-									className={`
-						absolute right-4 top-1/2 transform -translate-y-1/2
-						text-slate-900        // שינוי לצבע כהה של הסיידבר
-						hover:text-slate-700  // שינוי hover לגוון בהיר יותר
-						transition-colors
-						disabled:opacity-50
-						disabled:cursor-not-allowed
-					`}
+									className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-900 hover:text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
 								>
 									{loading ? (
 										<Loader2 className="w-6 h-6 animate-spin" />
