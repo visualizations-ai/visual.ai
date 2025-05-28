@@ -75,7 +75,6 @@ const Register = () => {
       <div className="bg-slate-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-xl shadow-indigo-500/10 w-full max-w-md border border-indigo-400/20">
         <h1 className="text-2xl font-bold mb-6 text-center bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 to-purple-400">Register to Visual.AI</h1>
    
-        {/* הודעת שגיאה אדומה עם אייקון חסימה */}
         {error && !passwordMismatch && (
           <div className="bg-red-900/20 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg mb-4 flex items-start gap-3">
             <div className="flex-shrink-0 mt-0.5">
@@ -209,7 +208,6 @@ const Register = () => {
               </button>
             </div>
             
-            {/* הודעת אי-התאמת סיסמאות */}
             {formData.confirmPassword && (
               <div className={`mt-2 flex items-center gap-2 text-xs ${passwordsMatch ? 'text-green-400' : 'text-red-400'}`}>
                 {passwordsMatch ? (
