@@ -125,8 +125,8 @@ export const HomePage = () => {
 			<div className="flex-1 flex flex-col">
 				<div className="flex items-center justify-between p-4 bg-gradient-to-b from-indigo-50/90 to-slate-50/90">
 					<div className="flex items-center">
-						<MessageSquare size={24} className="text-indigo-700 mr-2" />
-						<h2 className="font-medium text-indigo-800">New Conversation</h2>
+						<MessageSquare size={24} className="text-slate-700 mr-2" />
+						<h2 className="font-medium text-slate-700">New Conversation</h2>
 					</div>
 					<button
 						onClick={handleLogout}
@@ -137,23 +137,86 @@ export const HomePage = () => {
 				</div>
 
 				<div className="flex-1 overflow-y-auto bg-gradient-to-b from-indigo-50/90 to-slate-50/90 pb-24">
-					<div className="max-w-2xl mx-auto w-3/4 px-4">
+					<div className="max-w-4xl mx-auto px-4">
 						{messages.length === 0 ? (
-							<div className="flex flex-col items-center justify-center min-h-[400px] text-indigo-800 space-y-5">
-								<p className="text-lg font-medium">
+							<div className="flex flex-col items-center justify-center min-h-[500px] text-slate-700 space-y-8">
+								<p className="text-xl font-medium">
 									Send a message to start conversation
 								</p>
 
-								<div className="flex flex-wrap justify-center gap-3 max-w-2xl w-full">
+								{/* Sample questions between title and input */}
+								<div className="flex flex-wrap justify-center gap-4 max-w-4xl w-full">
 									{sampleQuestions.map((question, index) => (
 										<button
 											key={index}
 											onClick={() => setAndSubmitQuestion(question)}
-											className="p-2 bg-white border border-indigo-100 rounded-lg shadow-sm hover:bg-indigo-50/80 hover:border-indigo-200 transition-colors text-xs text-indigo-700 text-center w-[130px] h-[70px] flex items-center justify-center"
+											className="p-3 bg-white border border-indigo-100 rounded-lg shadow-sm hover:bg-indigo-50/80 hover:border-indigo-200 transition-colors text-sm text-slate-700 text-center w-[160px] h-[80px] flex items-center justify-center"
 										>
 											{question}
 										</button>
 									))}
+								</div>
+
+								{/* Input section - narrower width, taller height */}
+								<div className="w-full max-w-2xl">
+									<div 
+										className="rounded-xl p-[1px] transition-all duration-300"
+										style={{ background: 'rgb(199 210 254)' }}
+										id="input-container"
+									>
+										<form onSubmit={handleSubmit} className="relative">
+											<input
+												type="text"
+												value={input}
+												onChange={(e) => setInput(e.target.value)}
+												placeholder="Type your message..."
+												disabled={loading}
+												className={`
+									w-full py-6 px-4 pr-14
+									rounded-xl
+									bg-white
+									text-indigo-600
+									placeholder-indigo-400
+									border-none
+									outline-none
+									shadow-lg
+									transition-all duration-300
+									text-base
+									${loading ? "opacity-50 cursor-not-allowed" : ""}
+								`}
+												onFocus={(e) => {
+													const container = document.getElementById('input-container');
+													if (container) {
+														container.style.background = 'linear-gradient(135deg, #8B5CF6, #6366F1, #3B82F6)';
+													}
+												}}
+												onBlur={(e) => {
+													const container = document.getElementById('input-container');
+													if (container) {
+														container.style.background = 'rgb(199 210 254)';
+													}
+												}}
+											/>
+											<button
+												type="submit"
+												disabled={loading || !input.trim()}
+												className={`
+									absolute right-4 top-1/2 transform -translate-y-1/2
+									text-indigo-600
+									hover:text-indigo-700
+									transition-colors
+									disabled:opacity-50
+									disabled:cursor-not-allowed
+								`}
+											>
+												{loading ? (
+													<Loader2 className="w-6 h-6 animate-spin" />
+												) : (
+													<Send className="w-6 h-6" />
+												)}
+											</button>
+										</form>
+									</div>
 								</div>
 							</div>
 						) : (
@@ -188,49 +251,69 @@ export const HomePage = () => {
 					</div>
 				</div>
 
-				<div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-3/4 max-w-2xl">
-					<form onSubmit={handleSubmit} className="relative">
-						<input
-							type="text"
-							value={input}
-							onChange={(e) => setInput(e.target.value)}
-							placeholder="Type your message..."
-							disabled={loading}
-							className={`
-                w-full p-3 pr-12
-                rounded-3xl
-                bg-white
-                text-indigo-600
-                placeholder-indigo-400
-                border border-indigo-200
-                shadow-lg
-                focus:outline-none
-                focus:ring-2
-                focus:ring-indigo-500
-                focus:border-transparent
-                ${loading ? "opacity-50 cursor-not-allowed" : ""}
-              `}
-						/>
-						<button
-							type="submit"
-							disabled={loading || !input.trim()}
-							className={`
-                absolute right-3 top-1/2 transform -translate-y-1/2
-                text-indigo-600
-                hover:text-indigo-700
-                transition-colors
-                disabled:opacity-50
-                disabled:cursor-not-allowed
-              `}
+				{/* Input section for when there are messages - stays at bottom */}
+				{messages.length > 0 && (
+					<div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4">
+						<div 
+							className="rounded-xl p-[1px] transition-all duration-300"
+							style={{ background: 'rgb(199 210 254)' }}
+							id="input-container-bottom"
 						>
-							{loading ? (
-								<Loader2 className="w-5 h-5 animate-spin" />
-							) : (
-								<Send className="w-5 h-5" />
-							)}
-						</button>
-					</form>
-				</div>
+							<form onSubmit={handleSubmit} className="relative">
+								<input
+									type="text"
+									value={input}
+									onChange={(e) => setInput(e.target.value)}
+									placeholder="Type your message..."
+									disabled={loading}
+									className={`
+						w-full py-6 px-4 pr-14
+						rounded-xl
+						bg-white
+						text-indigo-600
+						placeholder-indigo-400
+						border-none
+						outline-none
+						shadow-lg
+						transition-all duration-300
+						text-base
+						${loading ? "opacity-50 cursor-not-allowed" : ""}
+					`}
+									onFocus={(e) => {
+										const container = document.getElementById('input-container-bottom');
+										if (container) {
+											container.style.background = 'linear-gradient(135deg, #8B5CF6, #6366F1, #3B82F6)';
+										}
+									}}
+									onBlur={(e) => {
+										const container = document.getElementById('input-container-bottom');
+										if (container) {
+											container.style.background = 'rgb(199 210 254)';
+										}
+									}}
+								/>
+								<button
+									type="submit"
+									disabled={loading || !input.trim()}
+									className={`
+						absolute right-4 top-1/2 transform -translate-y-1/2
+						text-indigo-600
+						hover:text-indigo-700
+						transition-colors
+						disabled:opacity-50
+						disabled:cursor-not-allowed
+					`}
+								>
+									{loading ? (
+										<Loader2 className="w-6 h-6 animate-spin" />
+									) : (
+										<Send className="w-6 h-6" />
+									)}
+								</button>
+							</form>
+						</div>
+					</div>
+				)}
 			</div>
 		</div>
 	);
