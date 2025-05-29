@@ -121,19 +121,29 @@ export const HomePage = () => {
 											<div key={idx} className="animate-fade-in mb-4">
 												{msg.role === "user" ? (
 													<div className="flex justify-end mb-2">
-														<div className="bg-indigo-300 text-white p-3 rounded-lg text-sm max-w-[70%]">
+														<div className="bg-indigo-300 text-white p-3 rounded-lg text-sm max-w-[70%] whitespace-pre-wrap">
 															{msg.content}
 														</div>
 													</div>
 												) : (
 													<div className="flex justify-start mb-2">
-														<div className="bg-white border border-indigo-100 text-slate-700 p-3 rounded-lg text-sm max-w-[70%] shadow">
+														<div className="bg-white border border-indigo-100 text-slate-700 p-3 rounded-lg text-sm max-w-[70%] shadow whitespace-pre-wrap">
 															{msg.content}
 														</div>
 													</div>
 												)}
 											</div>
 										))}
+										{loading && (
+											<div className="flex justify-start mb-2">
+												<div className="bg-white border border-indigo-100 text-slate-700 p-3 rounded-lg text-sm shadow">
+													<div className="flex items-center space-x-2">
+														<Loader2 className="w-4 h-4 animate-spin" />
+														<span>Thinking...</span>
+													</div>
+												</div>
+											</div>
+										)}
 										<div ref={messagesEndRef} className="h-4" />
 									</div>
 								</div>
