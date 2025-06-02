@@ -120,20 +120,20 @@ export const HomePage = () => {
 								</div>
 							</div>
 						) : (
-							<div className="h-[calc(100vh-200px)] overflow-hidden">
+							<div className="h-[calc(100vh-200px)] overflow-hidden -ml-[9%]">
 								<div className="max-w-2xl mx-auto h-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
-									<div className="pt-4 space-y-4 flex flex-col px-16">
+									<div className="pt-4 space-y-4 flex flex-col px-4">
 										{messages.map((msg, idx) => (
-											<div key={idx} className="animate-fade-in mb-4">
+											<div key={idx} className="animate-fade-in mb-4 w-full">
 												{msg.role === "user" ? (
 													<div className="flex justify-end mb-2">
-														<div className="bg-indigo-300 text-white p-3 rounded-lg text-sm max-w-[70%] break-words">
+														<div className="bg-indigo-300 text-white p-3.5 rounded-xl text-sm max-w-[90%] break-words">
 															{msg.content}
 														</div>
 													</div>
 												) : (
-													<div className="flex justify-end mb-2">
-														<div className="text-slate-700 p-3 text-sm max-w-[70%] break-words">
+													<div className="flex justify-start mb-2">
+														<div className="text-slate-700 p-3.5 text-sm max-w-[90%] break-words">
 															{msg.content}
 														</div>
 													</div>
@@ -187,7 +187,7 @@ const MessageInput = ({
 }) => {
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-	useEffect(() => {
+	use
 		if (textareaRef.current) {
 			textareaRef.current.style.height = "auto";
 			textareaRef.current.style.height =
