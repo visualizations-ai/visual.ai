@@ -1,4 +1,5 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
+import { ApolloError } from '@apollo/client';
 import client from '../graphql/apollo-client';
 import { LOGIN_MUTATION, REGISTER_MUTATION, CHECK_CURRENT_USER, LOGOUT_MUTATION } from '../graphql/auth';
 
@@ -25,6 +26,11 @@ interface AuthState {
   error: string | null;
 }
 
+interface AuthResponse {
+  user: User;
+  projectIds: DataSource[];
+  collections: string[];
+}
 
 const initialState: AuthState = {
   user: null,
@@ -46,12 +52,12 @@ export const loginUser = createAsyncThunk(
         variables: credentials
       });
       
-      console.log('Login successful:', response);
-      return response.data.loginUser;
-    } catch (error: any) {
-      console.error('Login error:', error);
-      const errorMessage = error?.message || 'Login failed';
-      return thunkAPI.rejectWithValue(errorMessage);
+      return response.data.loginUser as AuthResponse;
+    } catch (error: unknown) {
+      if (error instanceof ApolloError || error instanceof Error) {
+        return thunkAPI.rejectWithValue(error.message);
+      }
+      return thunkAPI.rejectWithValue('An unknown error occurred');
     }
   }
 );
@@ -67,12 +73,12 @@ export const registerUser = createAsyncThunk(
         }
       });
       
-      console.log('Register successful:', response);
-      return response.data.registerUser;
-    } catch (error: any) {
-      console.error('Register error:', error);
-      const errorMessage = error?.message || 'Registration failed';
-      return thunkAPI.rejectWithValue(errorMessage);
+      return response.data.registerUser as AuthResponse;
+    } catch (error: unknown) {
+      if (error instanceof ApolloError || error instanceof Error) {
+        return thunkAPI.rejectWithValue(error.message);
+      }
+      return thunkAPI.rejectWithValue('Registration failed');
     }
   }
 );
@@ -86,10 +92,11 @@ export const checkCurrentUser = createAsyncThunk(
         fetchPolicy: 'network-only'
       });
       
-      console.log('Check user successful:', response);
-      return response.data.checkCurrentUser;
-    } catch (error: any) {
-      console.error('Check user error:', error);
+      return response.data.checkCurrentUser as AuthResponse;
+    } catch (error: unknown) {
+      if (error instanceof ApolloError || error instanceof Error) {
+        return thunkAPI.rejectWithValue(error.message);
+      }
       return thunkAPI.rejectWithValue('Not authenticated');
     }
   }
@@ -103,12 +110,12 @@ export const logoutUser = createAsyncThunk(
         mutation: LOGOUT_MUTATION
       });
       
-      console.log('Logout successful');
       return undefined;
-    } catch (error: any) {
-      console.error('Logout error:', error);
-      const errorMessage = error?.message || 'Logout failed';
-      return thunkAPI.rejectWithValue(errorMessage);
+    } catch (error: unknown) {
+      if (error instanceof ApolloError || error instanceof Error) {
+        return thunkAPI.rejectWithValue(error.message);
+      }
+      return thunkAPI.rejectWithValue('Logout failed');
     }
   }
 );

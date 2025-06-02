@@ -127,13 +127,13 @@ export const HomePage = () => {
 											<div key={idx} className="animate-fade-in mb-4 w-full">
 												{msg.role === "user" ? (
 													<div className="flex justify-end mb-2">
-														<div className="bg-indigo-300 text-white p-3.5 rounded-xl text-sm max-w-[90%] break-words">
+														<div className="bg-indigo-300 text-white p-3.5 rounded-xl text-sm max-w-full break-words">
 															{msg.content}
 														</div>
 													</div>
 												) : (
-													<div className="flex justify-start mb-2">
-														<div className="text-slate-700 p-3.5 text-sm max-w-[90%] break-words">
+													<div className="flex justify-end mb-2">
+														<div className="text-slate-700 p-3.5 text-sm max-w-full break-words">
 															{msg.content}
 														</div>
 													</div>
@@ -187,48 +187,56 @@ const MessageInput = ({
 }) => {
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-	use
+	useEffect(() => {
 		if (textareaRef.current) {
 			textareaRef.current.style.height = "auto";
-			textareaRef.current.style.height =
-				textareaRef.current.scrollHeight + "px";
+			const maxHeight = 216; 
+			const scrollHeight = textareaRef.current.scrollHeight;
+			textareaRef.current.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
 		}
 	}, [input]);
 
 	return (
 		<div
-			className="rounded-xl p-[1px] transition-all duration-300"
+			className="rounded-xl p-[1px] transition-all duration-300 relative"
 			style={{ background: "rgb(199 210 254)" }}
 			id="input-container-bottom"
 		>
 			<form onSubmit={handleSubmit} className="relative">
-				<textarea
-					ref={textareaRef}
-					value={input}
-					onChange={(e) => setInput(e.target.value)}
-					placeholder="Type your message..."
-					disabled={loading}
-					rows={1}
-					className={`w-full py-6 px-4 pr-14 rounded-xl bg-white text-slate-900 placeholder-slate-600 border-none outline-none shadow-lg transition-all text-base resize-none overflow-hidden ${
-						loading ? "opacity-50 cursor-not-allowed" : ""
-					}`}
-					onFocus={() => {
-						const container = document.getElementById("input-container-bottom");
-						if (container)
-							container.style.background =
-								"linear-gradient(135deg, #8B5CF6, #6366F1, #3B82F6)";
-					}}
-					onBlur={() => {
-						const container = document.getElementById("input-container-bottom");
-						if (container) container.style.background = "rgb(199 210 254)";
-					}}
-					onKeyDown={(e) => {
-						if (e.key === "Enter" && !e.shiftKey) {
-							e.preventDefault();
-							handleSubmit();
-						}
-					}}
-				/>
+				<div className="relative">
+					{textareaRef.current && textareaRef.current.scrollHeight > 216 && (
+						<div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-white via-white to-transparent z-10" />
+					)}
+					<textarea
+						ref={textareaRef}
+						value={input}
+						onChange={(e) => setInput(e.target.value)}
+						placeholder="Type your message..."
+						disabled={loading}
+						rows={1}
+						className={`w-full py-6 px-4 pr-14 rounded-xl bg-white text-slate-900 
+              placeholder-slate-600 border-none outline-none shadow-lg transition-all 
+              text-base resize-none max-h-[216px] overflow-y-auto
+              [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]
+              ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
+						onFocus={() => {
+							const container = document.getElementById("input-container-bottom");
+							if (container)
+								container.style.background =
+									"linear-gradient(135deg, #8B5CF6, #6366F1, #3B82F6)";
+						}}
+						onBlur={() => {
+							const container = document.getElementById("input-container-bottom");
+							if (container) container.style.background = "rgb(199 210 254)";
+						}}
+						onKeyDown={(e) => {
+							if (e.key === "Enter" && !e.shiftKey) {
+								e.preventDefault();
+								handleSubmit();
+							}
+						}}
+					/>
+				</div>
 				<button
 					type="submit"
 					disabled={loading || !input.trim()}
