@@ -7,56 +7,17 @@ import {
 	AlertCircle,
 	Eye,
 	EyeOff,
-	Trash2,
-	Edit,
+	
 } from "lucide-react";
 import { useMutation, useQuery } from "@apollo/client";
-import { gql } from "@apollo/client";
-import { useNavigate } from "react-router-dom";
 import { Sidebar } from "../../shared/sidebar";
 
-// GraphQL Queries
-const GET_DATA_SOURCES = gql`
-	query GetDataSources {
-		getDataSources {
-			dataSource {
-				id
-				projectId
-				type
-				database
-			}
-		}
-	}
-`;
-
-const TEST_CONNECTION = gql`
-	mutation CheckPostgresqlConnection($datasource: DataSourceInfo!) {
-		checkPostgresqlConnection(datasource: $datasource) {
-			message
-		}
-	}
-`;
-
-const CREATE_DATASOURCE = gql`
-	mutation CreatePostgresqlDataSource($source: DataSourceInfo!) {
-		createPostgresqlDataSource(source: $source) {
-			dataSource {
-				id
-				projectId
-				type
-				database
-			}
-		}
-	}
-`;
-
-const DELETE_DATASOURCE = gql`
-	mutation DeleteDatasource($datasourceId: String!) {
-		deleteDatasource(datasourceId: $datasourceId) {
-			id
-		}
-	}
-`;
+import {
+    GET_DATA_SOURCES,
+    TEST_CONNECTION,
+    CREATE_DATASOURCE,
+    DELETE_DATASOURCE,
+} from "../../graphql/data-sources";
 
 export interface DataSourceForm {
 	projectId: string;
@@ -86,14 +47,11 @@ const DataSources = () => {
 		password: "",
 	});
 
-	// GraphQL hooks
 	const { data: dataSourcesData, loading: dataSourcesLoading, refetch } = useQuery(GET_DATA_SOURCES);
 	const [testConnectionMutation] = useMutation(TEST_CONNECTION);
 	const [createDatasourceMutation] = useMutation(CREATE_DATASOURCE);
 	const [deleteDatasourceMutation] = useMutation(DELETE_DATASOURCE);
-	const navigate = useNavigate();
 
-	// עדכן את הרשימה כשמגיעים נתונים חדשים
 	useEffect(() => {
 		if (dataSourcesData?.getDataSources?.dataSource) {
 			setDataSources(dataSourcesData.getDataSources.dataSource);
