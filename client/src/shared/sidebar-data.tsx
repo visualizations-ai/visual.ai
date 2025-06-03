@@ -11,7 +11,7 @@ export const sidebarIcons: IconProps[] = [
   { 
     label: "queries", 
     icon: <MessageSquare size={24} />,
-    path: "/queries"
+    path: "/home"
   },
   { 
   label: "data", 

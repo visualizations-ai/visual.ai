@@ -23,7 +23,6 @@ export const Sidebar: React.FC = () => {
     flex flex-col
   `}
 		>
-			{/* שינוי המיקום של כפתור התפריט */}
 			<button
 				onClick={() => setIsOpen(!isOpen)}
 				className={`

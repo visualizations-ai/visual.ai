@@ -20,7 +20,7 @@ const Register = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate("/home");
+      navigate("/data-sources", { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
