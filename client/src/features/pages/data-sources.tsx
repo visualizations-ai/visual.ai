@@ -5,7 +5,7 @@ import { TEST_CONNECTION,CREATE_DATASOURCE } from '../../graphql/data-sources';
 
 
 
-interface DataSourceForm {
+export  interface DataSourceForm {
   projectId: string;
   host: string;
   port: string;
@@ -13,7 +13,6 @@ interface DataSourceForm {
   username: string;
   password: string;
 }
-
 const DataSources = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
