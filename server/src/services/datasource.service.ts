@@ -1,49 +1,65 @@
-
 import { AppDataSource } from "@/database/config";
 import { Datasource } from "@/entities/datasource.entity";
 import { DataSource } from "@/interfaces/auth.interface";
 import { DataSourceDocument, DataSourceProjectID } from "@/interfaces/datasource.interface";
-import { decodeBase64 } from "@/utils/utils";
+import { encrypt, decrypt } from "@/utils/encryption.util";
 import { GraphQLError } from "graphql";
 
-export  const createNewDataSource = async (data: DataSourceDocument): Promise<DataSourceDocument> => {
+export const createNewDataSource = async (data: DataSourceDocument): Promise<DataSourceDocument> => {
   try {
     const datasourceRepository = AppDataSource.getRepository(Datasource);
-    const result = await datasourceRepository.save(data);
+    const encryptedData = {
+      ...data,
+      databaseUrl: data.databaseUrl ? encrypt(data.databaseUrl) : data.databaseUrl,
+      databaseName: data.databaseName ? encrypt(data.databaseName) : data.databaseName,
+      username: data.username ? encrypt(data.username) : data.username,
+      password: data.password ? encrypt(data.password) : data.password
+    };
+    
+    const result = await datasourceRepository.save(encryptedData);
     return result;
   } catch (error: any) {
     throw new GraphQLError(error?.message);
   }
 }
 
-export  const getDataSourceByProjectId = async(projectid: string): Promise<DataSourceDocument> => {
+export const getDataSourceByProjectId = async(projectid: string): Promise<DataSourceDocument> => {
   try {
     const datasourceRepository = AppDataSource.getRepository(Datasource);
     const result = await datasourceRepository.findOne({
       where: { projectId: projectid }
     }) as unknown as DataSourceDocument;
+    
+    if (!result) {
+      throw new GraphQLError(`Data source with project ID ${projectid} not found`);
+    }
+    
     return result;
   } catch (error: any) {
     throw new GraphQLError(error?.message);
   }
 }
 
-export  const getDataSourceById = async(datasourceId: string): Promise<DataSourceDocument> => {
+export const getDataSourceById = async(datasourceId: string): Promise<DataSourceDocument> => {
   try {
     const datasourceRepository = AppDataSource.getRepository(Datasource);
     const result = await datasourceRepository.findOne({
       where: { id: datasourceId }
     }) as unknown as DataSourceDocument;
+    
+    if (!result) {
+      throw new GraphQLError(`Data source with ID ${datasourceId} not found`);
+    }
+    
     return result;
   } catch (error: any) {
     throw new GraphQLError(error?.message);
   }
 }
 
-export  const getDataSources = async (userid: string): Promise<DataSource[]> => {
+export const getDataSources = async (userid: string): Promise<DataSource[]> => {
   try {
     const datasourceRepository = AppDataSource.getRepository(Datasource);
-
 
     const result: DataSourceDocument[] = await datasourceRepository.find({
       where: { userId: userid },
@@ -56,7 +72,7 @@ export  const getDataSources = async (userid: string): Promise<DataSource[]> => 
         id,
         projectId,
         type,
-        database: databaseName && databaseName.length > 0 ? decodeBase64(databaseName) : ''
+        database: databaseName && databaseName.length > 0 ? decrypt(databaseName) : ''
       };
     }) as DataSource[];
 
@@ -66,10 +82,19 @@ export  const getDataSources = async (userid: string): Promise<DataSource[]> => 
   }
 }
 
-export  const editDataSource = async (data: DataSourceDocument): Promise<DataSourceProjectID[]> => {
+export const editDataSource = async (data: DataSourceDocument): Promise<DataSourceProjectID[]> => {
   try {
     const datasourceRepository = AppDataSource.getRepository(Datasource);
-    await datasourceRepository.update({ id: data.id }, data);
+    
+    const encryptedData = {
+      ...data,
+      databaseUrl: data.databaseUrl ? encrypt(data.databaseUrl) : data.databaseUrl,
+      databaseName: data.databaseName ? encrypt(data.databaseName) : data.databaseName,
+      username: data.username ? encrypt(data.username) : data.username,
+      password: data.password ? encrypt(data.password) : data.password
+    };
+    
+    await datasourceRepository.update({ id: data.id }, encryptedData);
     const result: DataSourceProjectID[] = await getDataSources(`${data.userId}`);
     return result;
   } catch (error: any) {
@@ -77,7 +102,7 @@ export  const editDataSource = async (data: DataSourceDocument): Promise<DataSou
   }
 }
 
-export  const deleteDatasource = async (datasourceId: string): Promise<boolean> => {
+export const deleteDatasource = async (datasourceId: string): Promise<boolean> => {
   const queryRunner = AppDataSource.createQueryRunner();
   try {
     await queryRunner.connect();
