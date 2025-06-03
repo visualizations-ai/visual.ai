@@ -59,7 +59,7 @@ const DataSources = () => {
       port: formData.port,
       databaseName: formData.databaseName,
       username: formData.username,
-      password: formData.password.substring(0, 3) + '***' // הסתר רוב הסיסמה בלוג
+      password: formData.password.substring(0, 3) + '***' 
     });
 
     try {
@@ -153,7 +153,7 @@ const DataSources = () => {
     setFormData({
       projectId: '',
       host: '',
-      port: '5432',
+      port: '',
       databaseName: '',
       username: '',
       password: ''
@@ -215,7 +215,6 @@ const DataSources = () => {
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
                       Project ID *
-                      <span className="text-slate-500 font-normal ml-1">(Unique identifier for this connection)</span>
                     </label>
                     <input 
                       type="text" 
@@ -224,14 +223,12 @@ const DataSources = () => {
                       onChange={handleInputChange} 
                       className={inputClass} 
                       required 
-                      placeholder="e.g., my-supabase-db" 
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
                       Host *
-                      <span className="text-slate-500 font-normal ml-1">(Should be: aws-0-eu-central-1.pooler.supabase.com)</span>
                     </label>
                     <input 
                       type="text" 
@@ -240,14 +237,13 @@ const DataSources = () => {
                       onChange={handleInputChange} 
                       className={inputClass} 
                       required 
-                      placeholder="aws-0-eu-central-1.pooler.supabase.com" 
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
                       Port
-                      <span className="text-slate-500 font-normal ml-1">(5432 for Session mode)</span>
+                      
                     </label>
                     <input 
                       type="number" 
@@ -255,14 +251,12 @@ const DataSources = () => {
                       value={formData.port} 
                       onChange={handleInputChange} 
                       className={inputClass} 
-                      placeholder="5432" 
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
                       Database Name *
-                      <span className="text-slate-500 font-normal ml-1">(Usually 'postgres' for Supabase)</span>
                     </label>
                     <input 
                       type="text" 
@@ -271,14 +265,13 @@ const DataSources = () => {
                       onChange={handleInputChange} 
                       className={inputClass} 
                       required 
-                      placeholder="postgres" 
+                    
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
                       Username *
-                      <span className="text-slate-500 font-normal ml-1">(Format: postgres.projectref)</span>
                     </label>
                     <input 
                       type="text" 
@@ -287,7 +280,6 @@ const DataSources = () => {
                       onChange={handleInputChange} 
                       className={inputClass} 
                       required 
-                      placeholder="postgres.tchkarrwxtjmbmpkabqt" 
                     />
                   </div>
 
@@ -301,7 +293,6 @@ const DataSources = () => {
                         onChange={handleInputChange} 
                         className={inputClass} 
                         required 
-                        placeholder="Your Supabase password" 
                       />
                       <button 
                         type="button" 
