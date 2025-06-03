@@ -1,23 +1,22 @@
-import { gql } from '@apollo/client';
+import { gql } from "@apollo/client";
 
-export const TEST_CONNECTION = gql`
-  mutation TestConnection($input: DatabaseConnectionInput!) {
-    testDatabaseConnection(input: $input) {
-      success
+  export const TEST_CONNECTION = gql`
+  mutation CheckPostgresqlConnection($datasource: DataSourceInfo!) {
+    checkPostgresqlConnection(datasource: $datasource) {
       message
     }
   }
 `;
 
-export const CREATE_DATASOURCE = gql`
-  mutation CreateDatasource($input: CreateDatasourceInput!) {
-    createDatasource(input: $input) {
-      id
-      projectId
-      host
-      port
-      databaseName
-      username
+ export const CREATE_DATASOURCE = gql`
+  mutation CreatePostgresqlDataSource($source: DataSourceInfo!) {
+    createPostgresqlDataSource(source: $source) {
+      dataSource {
+        id
+        projectId
+        type
+        database
+      }
     }
   }
 `;
