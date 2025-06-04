@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Sidebar } from "../../shared/sidebar";
-import { MessageSquare, Send, Loader2 } from "lucide-react";
+import { MessageSquare, Send, Loader2, Menu, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch } from "../../hooks/redux-hooks";
 import { logoutUser } from "../../store/auth-slice";
@@ -11,6 +11,7 @@ export const HomePage = () => {
 	);
 	const [input, setInput] = useState("");
 	const [loading, setLoading] = useState(false);
+	const [sidebarOpen, setSidebarOpen] = useState(false);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const navigate = useNavigate();
 	const dispatch = useAppDispatch();
@@ -75,10 +76,27 @@ export const HomePage = () => {
 
 	return (
 		<div className="flex h-screen bg-gradient-to-br from-slate-100 via-indigo-50 to-slate-100">
-			<Sidebar />
+<div className="hidden md:block">
+	<Sidebar />
+</div>
+
+
+<div className={`
+	fixed md:hidden inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out
+	${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+`}>
+	<Sidebar forceOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+</div>
 			<div className="flex-1 flex flex-col">
 				<div className="flex items-center justify-between p-4 bg-gradient-to-b from-indigo-50/90 to-slate-50/90">
 					<div className="flex items-center">
+						<button
+							onClick={() => setSidebarOpen(!sidebarOpen)}
+							className="md:hidden mr-2 p-1 rounded-md hover:bg-slate-200 transition-colors"
+						>
+							{sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+						</button>
+						
 						<MessageSquare size={24} className="text-slate-700 mr-2" />
 						<h2 className="font-medium text-slate-700">New Conversation</h2>
 					</div>
@@ -98,18 +116,18 @@ export const HomePage = () => {
 									<p className="text-xl font-medium">
 										Send a message to start conversation
 									</p>
-									<div className="flex flex-wrap justify-center gap-4 max-w-2xl w-full mx-auto">
+									<div className="flex flex-wrap justify-center gap-4 max-w-2xl w-full mx-auto px-4 md:px-0">
 										{sampleQuestions.map((question, index) => (
 											<button
 												key={index}
 												onClick={() => setAndSubmitQuestion(question)}
-												className="p-6 bg-white border border-indigo-100 rounded-lg shadow-sm hover:bg-indigo-50/80 hover:border-indigo-200 transition-colors text-xs text-slate-700 text-center w-[152px] h-[100px] flex items-center justify-center leading-tight px-3"
+												className="p-6 bg-white border border-indigo-100 rounded-lg shadow-sm hover:bg-indigo-50/80 hover:border-indigo-200 transition-colors text-xs text-slate-700 text-center w-full sm:w-[152px] h-[100px] flex items-center justify-center leading-tight px-3"
 											>
 												{question}
 											</button>
 										))}
 									</div>
-									<div className="w-full max-w-2xl">
+									<div className="w-full max-w-2xl px-4 md:px-0">
 										<MessageInput
 											input={input}
 											setInput={setInput}
@@ -121,19 +139,19 @@ export const HomePage = () => {
 							</div>
 						) : (
 							<div className="h-[calc(100vh-200px)] overflow-hidden -ml-[9%]">
-								<div className="max-w-2xl mx-auto h-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
-									<div className="pt-4 space-y-4 flex flex-col px-4">
+								<div className="max-w-2xl mx-auto h-full overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+									<div className="pt-4 space-y-4 flex flex-col px-4" style={{minWidth: 0, width: '100%'}}>
 										{messages.map((msg, idx) => (
 											<div key={idx} className="animate-fade-in mb-4 w-full">
 												{msg.role === "user" ? (
 													<div className="flex justify-end mb-2">
-														<div className="bg-indigo-300 text-white p-3.5 rounded-xl text-sm max-w-full break-words">
+														<div className="bg-indigo-300 text-white p-3.5 rounded-xl text-sm max-w-[85%] md:max-w-full break-all hyphens-auto" style={{wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap', minWidth: 0}}>
 															{msg.content}
 														</div>
 													</div>
 												) : (
-													<div className="flex justify-end mb-2">
-														<div className="text-slate-700 p-3.5 text-sm max-w-full break-words">
+													<div className="flex justify-end md:justify-end mb-2">
+														<div className="text-slate-700 p-3.5 text-sm max-w-[85%] md:max-w-full break-all hyphens-auto" style={{wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap', minWidth: 0}}>
 															{msg.content}
 														</div>
 													</div>
@@ -142,7 +160,7 @@ export const HomePage = () => {
 										))}
 
 										{loading && (
-											<div className="flex justify-end mb-2">
+											<div className="flex justify-start md:justify-end mb-2">
 												<div className="text-slate-700 p-3 text-sm">
 													<div className="flex items-center space-x-2">
 														<Loader2 className="w-4 h-4 animate-spin" />
@@ -160,7 +178,7 @@ export const HomePage = () => {
 				</div>
 
 				{messages.length > 0 && (
-					<div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4">
+					<div className="fixed bottom-4 left-4 right-4 md:absolute md:bottom-6 md:left-1/2 md:transform md:-translate-x-1/2 md:w-full md:max-w-2xl md:px-4">
 						<MessageInput
 							input={input}
 							setInput={setInput}

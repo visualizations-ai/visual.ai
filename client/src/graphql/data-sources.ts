@@ -43,15 +43,16 @@ export const DELETE_DATASOURCE = gql`
 `;
 
 export const UPDATE_DATASOURCE_NAME = gql`
-  mutation UpdateDataSourceName($datasourceId: String!, $newName: String!) {
-    updateDataSourceName(datasourceId: $datasourceId, newName: $newName) {
-      success
-      dataSource {
-        id
-        projectId
-        type
-        database
-      }
-    }
-  }
+	mutation UpdateDataSourceName($datasourceId: String!, $newName: String!) {
+		updateDataSourceName(datasourceId: $datasourceId, newName: $newName) {
+			success
+			message
+			dataSource {
+				id
+				projectId
+				type
+				database
+			}
+		}
+	}
 `;

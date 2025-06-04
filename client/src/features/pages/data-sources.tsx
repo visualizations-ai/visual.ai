@@ -1,26 +1,9 @@
 import React, { useState, useEffect } from "react";
-import {
-	Database,
-	Plus,
-	TestTube,
-	CheckCircle,
-	AlertCircle,
-	Eye,
-	EyeOff,
-	Edit3,
-	Trash2,
-} from "lucide-react";
+import {Database,Plus,TestTube,CheckCircle,AlertCircle,Eye,EyeOff,Edit3,Trash2,} from "lucide-react";
 import { useMutation, useQuery } from "@apollo/client";
 import { Sidebar } from "../../shared/sidebar";
 import { formatDistanceToNow } from "date-fns";
-
-import {
-	GET_DATA_SOURCES,
-	TEST_CONNECTION,
-	CREATE_DATASOURCE,
-	DELETE_DATASOURCE,
-	UPDATE_DATASOURCE_NAME,
-} from "../../graphql/data-sources";
+import {GET_DATA_SOURCES,TEST_CONNECTION,CREATE_DATASOURCE,DELETE_DATASOURCE,UPDATE_DATASOURCE_NAME,} from "../../graphql/data-sources";
 
 export interface DataSourceForm {
 	projectId: string;
