@@ -144,8 +144,7 @@ const Register = () => {
                 )}
               </button>
             </div>
-            
-            {/* Password requirements - show only unfulfilled requirements */}
+          
             {formData.password && (
               <div className="mt-2 space-y-1">
                 {!hasMinLength && (
