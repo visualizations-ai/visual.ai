@@ -3,7 +3,6 @@ import { ApolloError } from '@apollo/client';
 import client from '../graphql/apollo-client';
 import { LOGIN_MUTATION, REGISTER_MUTATION, CHECK_CURRENT_USER, LOGOUT_MUTATION } from '../graphql/auth';
 
-
 interface User {
   id: string;
   email: string;
@@ -41,7 +40,20 @@ const initialState: AuthState = {
   error: null
 };
 
-
+// פונקציה לניקוי Local Storage של Data Sources
+const clearDataSourcesCache = () => {
+  try {
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith('dataSources_') || key.startsWith('dataSourcesMeta_')) {
+        localStorage.removeItem(key);
+      }
+    });
+    console.log("Cleared all data sources cache on logout");
+  } catch (error) {
+    console.error("Failed to clear data sources cache:", error);
+  }
+};
 
 export const loginUser = createAsyncThunk(
   'auth/login',
@@ -110,8 +122,14 @@ export const logoutUser = createAsyncThunk(
         mutation: LOGOUT_MUTATION
       });
       
+      // נקה את קאש הData Sources
+      clearDataSourcesCache();
+      
       return undefined;
     } catch (error: unknown) {
+      // גם אם הlogout נכשל, נקה את הקאש
+      clearDataSourcesCache();
+      
       if (error instanceof ApolloError || error instanceof Error) {
         return thunkAPI.rejectWithValue(error.message);
       }
@@ -119,7 +137,6 @@ export const logoutUser = createAsyncThunk(
     }
   }
 );
-
 
 const authSlice = createSlice({
   name: 'auth',
@@ -138,6 +155,8 @@ const authSlice = createSlice({
       state.error = null;
     },
     forceLogout: (state) => {
+      clearDataSourcesCache();
+      
       state.user = null;
       state.projectIds = [];
       state.collections = [];
@@ -205,7 +224,6 @@ const authSlice = createSlice({
         state.user = null;
       });
 
- 
     builder
       .addCase(checkCurrentUser.pending, () => {
         console.log('Check user pending...');

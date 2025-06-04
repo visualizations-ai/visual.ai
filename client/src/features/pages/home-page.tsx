@@ -12,6 +12,7 @@ export const HomePage = () => {
 	const [input, setInput] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [sidebarOpen, setSidebarOpen] = useState(false);
+	const [progress, setProgress] = useState(0);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const navigate = useNavigate();
 	const dispatch = useAppDispatch();
@@ -37,6 +38,20 @@ export const HomePage = () => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 	}, [messages]);
 
+	// פונקציה לסימולציה של פרוגרס בר
+	const simulateProgress = () => {
+		setProgress(0);
+		const interval = setInterval(() => {
+			setProgress((prev) => {
+				if (prev >= 90) {
+					return prev; // נעצור ב-90% עד שנקבל תשובה
+				}
+				return prev + Math.random() * 10;
+			});
+		}, 200);
+		return interval;
+	};
+
 	const handleSubmit = async (e?: React.FormEvent, customInput?: string) => {
 		if (e) e.preventDefault();
 		const finalInput = customInput ?? input;
@@ -48,6 +63,9 @@ export const HomePage = () => {
 		setInput("");
 		setLoading(true);
 
+		// התחלת סימולציה של פרוגרס בר
+		const progressInterval = simulateProgress();
+
 		try {
 			const res = await fetch("http://localhost:3000/api/ask", {
 				method: "POST",
@@ -56,15 +74,24 @@ export const HomePage = () => {
 			});
 
 			const data = await res.json();
+			
+			// השלמת הפרוגרס בר ל-100%
+			setProgress(100);
+			
 			const botMessage = { role: "bot", content: data.answer };
 			setMessages((prev) => [...prev, botMessage]);
 		} catch (err) {
+			setProgress(100);
 			setMessages((prev) => [
 				...prev,
 				{ role: "bot", content: "error: " + (err as Error).message },
 			]);
 		} finally {
-			setLoading(false);
+			clearInterval(progressInterval);
+			setTimeout(() => {
+				setLoading(false);
+				setProgress(0);
+			}, 500); // השהיה קצרה כדי להראות את ה-100%
 		}
 	};
 
@@ -76,17 +103,47 @@ export const HomePage = () => {
 
 	return (
 		<div className="flex h-screen bg-gradient-to-br from-slate-100 via-indigo-50 to-slate-100">
-<div className="hidden md:block">
-	<Sidebar />
-</div>
+			{/* מסך טעינה מוצלל */}
+			{loading && (
+				<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+					<div className="bg-white rounded-xl p-8 shadow-2xl max-w-md w-full mx-4">
+						<div className="text-center">
+							<div className="mb-4">
+								<Loader2 className="w-12 h-12 animate-spin text-indigo-600 mx-auto" />
+							</div>
+							<h3 className="text-lg font-semibold text-gray-900 mb-2">
+								מעבד את השאלה שלך...
+							</h3>
+							<p className="text-gray-600 mb-4">
+								אנא המתן בזמן שאנחנו מחפשים את התשובה הטובה ביותר
+							</p>
+							
+							{/* פרוגרס בר */}
+							<div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+								<div 
+									className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full transition-all duration-300 ease-out"
+									style={{ width: `${Math.min(progress, 100)}%` }}
+								></div>
+							</div>
+							<p className="text-sm text-gray-500">
+								{Math.round(progress)}% הושלם
+							</p>
+						</div>
+					</div>
+				</div>
+			)}
 
+			<div className="hidden md:block">
+				<Sidebar />
+			</div>
 
-<div className={`
-	fixed md:hidden inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out
-	${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-`}>
-	<Sidebar forceOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-</div>
+			<div className={`
+				fixed md:hidden inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out
+				${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+			`}>
+				<Sidebar forceOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+			</div>
+			
 			<div className="flex-1 flex flex-col">
 				<div className="flex items-center justify-between p-4 bg-gradient-to-b from-indigo-50/90 to-slate-50/90">
 					<div className="flex items-center">
@@ -121,7 +178,10 @@ export const HomePage = () => {
 											<button
 												key={index}
 												onClick={() => setAndSubmitQuestion(question)}
-												className="p-6 bg-white border border-indigo-100 rounded-lg shadow-sm hover:bg-indigo-50/80 hover:border-indigo-200 transition-colors text-xs text-slate-700 text-center w-full sm:w-[152px] h-[100px] flex items-center justify-center leading-tight px-3"
+												disabled={loading}
+												className={`p-6 bg-white border border-indigo-100 rounded-lg shadow-sm hover:bg-indigo-50/80 hover:border-indigo-200 transition-colors text-xs text-slate-700 text-center w-full sm:w-[152px] h-[100px] flex items-center justify-center leading-tight px-3 ${
+													loading ? 'opacity-50 cursor-not-allowed' : ''
+												}`}
 											>
 												{question}
 											</button>
@@ -159,16 +219,6 @@ export const HomePage = () => {
 											</div>
 										))}
 
-										{loading && (
-											<div className="flex justify-start md:justify-end mb-2">
-												<div className="text-slate-700 p-3 text-sm">
-													<div className="flex items-center space-x-2">
-														<Loader2 className="w-4 h-4 animate-spin" />
-														<span>Thinking...</span>
-													</div>
-												</div>
-											</div>
-										)}
 										<div ref={messagesEndRef} className="h-4" />
 									</div>
 								</div>
