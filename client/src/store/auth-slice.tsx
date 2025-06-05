@@ -40,16 +40,29 @@ const initialState: AuthState = {
   error: null
 };
 
-// פונקציה לניקוי Local Storage של Data Sources
-const clearDataSourcesCache = () => {
+const clearDataSourcesCache = (specificUserId?: string) => {
   try {
     const keys = Object.keys(localStorage);
+    let clearedCount = 0;
+    
     keys.forEach(key => {
       if (key.startsWith('dataSources_') || key.startsWith('dataSourcesMeta_')) {
-        localStorage.removeItem(key);
+        if (specificUserId) {
+          if (key.includes(specificUserId)) {
+            localStorage.removeItem(key);
+            clearedCount++;
+          }
+        } else {
+          localStorage.removeItem(key);
+          clearedCount++;
+        }
       }
     });
-    console.log("Cleared all data sources cache on logout");
+    
+    console.log(`🧹 Cleared ${clearedCount} data sources cache items${specificUserId ? ` for user ${specificUserId}` : ''}`);
+    
+    client.clearStore().catch(console.error);
+    
   } catch (error) {
     console.error("Failed to clear data sources cache:", error);
   }
@@ -59,6 +72,8 @@ export const loginUser = createAsyncThunk(
   'auth/login',
   async (credentials: { email: string; password: string }, thunkAPI) => {
     try {
+      clearDataSourcesCache();
+      
       const response = await client.mutate({
         mutation: LOGIN_MUTATION,
         variables: credentials
@@ -78,6 +93,8 @@ export const registerUser = createAsyncThunk(
   'auth/register',
   async (credentials: { email: string; password: string }, thunkAPI) => {
     try {
+      clearDataSourcesCache();
+      
       const response = await client.mutate({
         mutation: REGISTER_MUTATION,
         variables: {
@@ -122,12 +139,10 @@ export const logoutUser = createAsyncThunk(
         mutation: LOGOUT_MUTATION
       });
       
-      // נקה את קאש הData Sources
       clearDataSourcesCache();
       
       return undefined;
     } catch (error: unknown) {
-      // גם אם הlogout נכשל, נקה את הקאש
       clearDataSourcesCache();
       
       if (error instanceof ApolloError || error instanceof Error) {
@@ -138,13 +153,32 @@ export const logoutUser = createAsyncThunk(
   }
 );
 
+const handleUserChange = (previousUser: User | null, newUser: User | null) => {
+
+  if (previousUser && newUser && previousUser.id !== newUser.id) {
+    console.log(`🔄 User changed from ${previousUser.id} to ${newUser.id} - clearing cache`);
+    clearDataSourcesCache(previousUser.id);
+  }
+
+  else if (previousUser && !newUser) {
+    console.log(`👋 User ${previousUser.id} logged out - clearing all cache`);
+    clearDataSourcesCache();
+  }
+};
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
     setUser: (state, action: PayloadAction<User | null>) => {
-      state.user = action.payload;
-      state.isAuthenticated = !!action.payload;
+      const previousUser = state.user;
+      const newUser = action.payload;
+      
+
+      handleUserChange(previousUser, newUser);
+      
+      state.user = newUser;
+      state.isAuthenticated = !!newUser;
       state.loading = false;
     },
     clearError: (state) => {
@@ -155,6 +189,8 @@ const authSlice = createSlice({
       state.error = null;
     },
     forceLogout: (state) => {
+      const previousUser = state.user;
+      
       clearDataSourcesCache();
       
       state.user = null;
@@ -163,6 +199,8 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.loading = false;
       state.error = null;
+      
+      console.log(`🚪 Force logout${previousUser ? ` for user ${previousUser.id}` : ''}`);
     }
   },
   extraReducers: (builder) => {
@@ -174,13 +212,20 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         console.log('Login fulfilled:', action.payload);
+        const previousUser = state.user;
+        
         state.loading = false;
         if (action.payload && action.payload.user) {
-          state.user = {
+          const newUser = {
             id: action.payload.user.id,
             email: action.payload.user.email,
             role: 'user'
           };
+          
+
+          handleUserChange(previousUser, newUser);
+          
+          state.user = newUser;
           state.projectIds = action.payload.projectIds || [];
           state.collections = action.payload.collections || [];
           state.isAuthenticated = true;
@@ -203,13 +248,19 @@ const authSlice = createSlice({
       })
       .addCase(registerUser.fulfilled, (state, action) => {
         console.log('Register fulfilled:', action.payload);
+        const previousUser = state.user;
+        
         state.loading = false;
         if (action.payload && action.payload.user) {
-          state.user = {
+          const newUser = {
             id: action.payload.user.id,
             email: action.payload.user.email,
             role: 'user'
           };
+          
+          handleUserChange(previousUser, newUser);
+          
+          state.user = newUser;
           state.projectIds = action.payload.projectIds || [];
           state.collections = action.payload.collections || [];
           state.isAuthenticated = true;
@@ -230,13 +281,19 @@ const authSlice = createSlice({
       })
       .addCase(checkCurrentUser.fulfilled, (state, action) => {
         console.log('Check user fulfilled:', action.payload);
+        const previousUser = state.user;
+        
         state.loading = false;
         if (action.payload && action.payload.user) {
-          state.user = {
+          const newUser = {
             id: action.payload.user.id,
             email: action.payload.user.email,
             role: 'user'
           };
+          
+          handleUserChange(previousUser, newUser);
+          
+          state.user = newUser;
           state.projectIds = action.payload.projectIds || [];
           state.collections = action.payload.collections || [];
           state.isAuthenticated = true;
@@ -245,6 +302,12 @@ const authSlice = createSlice({
       })
       .addCase(checkCurrentUser.rejected, (state) => {
         console.log('Check user rejected');
+        const previousUser = state.user;
+        
+        if (previousUser) {
+          handleUserChange(previousUser, null);
+        }
+        
         state.loading = false;
         state.isAuthenticated = false;
         state.user = null;
@@ -257,6 +320,10 @@ const authSlice = createSlice({
       })
       .addCase(logoutUser.fulfilled, (state) => {
         console.log('Logout fulfilled');
+        const previousUser = state.user;
+        
+        handleUserChange(previousUser, null);
+        
         state.loading = false;
         state.user = null;
         state.projectIds = [];
@@ -266,6 +333,10 @@ const authSlice = createSlice({
       })
       .addCase(logoutUser.rejected, (state) => {
         console.log('Logout rejected - but cleaning anyway');
+        const previousUser = state.user;
+        
+        handleUserChange(previousUser, null);
+        
         state.loading = false;
         state.user = null;
         state.projectIds = [];

@@ -38,13 +38,13 @@ export const HomePage = () => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 	}, [messages]);
 
-	// פונקציה לסימולציה של פרוגרס בר
+
 	const simulateProgress = () => {
 		setProgress(0);
 		const interval = setInterval(() => {
 			setProgress((prev) => {
 				if (prev >= 90) {
-					return prev; // נעצור ב-90% עד שנקבל תשובה
+					return prev; 
 				}
 				return prev + Math.random() * 10;
 			});
@@ -63,7 +63,7 @@ export const HomePage = () => {
 		setInput("");
 		setLoading(true);
 
-		// התחלת סימולציה של פרוגרס בר
+
 		const progressInterval = simulateProgress();
 
 		try {
@@ -75,7 +75,7 @@ export const HomePage = () => {
 
 			const data = await res.json();
 			
-			// השלמת הפרוגרס בר ל-100%
+	
 			setProgress(100);
 			
 			const botMessage = { role: "bot", content: data.answer };
@@ -91,7 +91,7 @@ export const HomePage = () => {
 			setTimeout(() => {
 				setLoading(false);
 				setProgress(0);
-			}, 500); // השהיה קצרה כדי להראות את ה-100%
+			}, 500); 
 		}
 	};
 
@@ -103,7 +103,6 @@ export const HomePage = () => {
 
 	return (
 		<div className="flex h-screen bg-gradient-to-br from-slate-100 via-indigo-50 to-slate-100">
-			{/* מסך טעינה מוצלל */}
 			{loading && (
 				<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
 					<div className="bg-white rounded-xl p-8 shadow-2xl max-w-md w-full mx-4">
@@ -118,7 +117,6 @@ export const HomePage = () => {
 								אנא המתן בזמן שאנחנו מחפשים את התשובה הטובה ביותר
 							</p>
 							
-							{/* פרוגרס בר */}
 							<div className="w-full bg-gray-200 rounded-full h-2 mb-2">
 								<div 
 									className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full transition-all duration-300 ease-out"

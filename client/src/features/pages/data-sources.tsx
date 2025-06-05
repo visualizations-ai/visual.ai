@@ -30,9 +30,74 @@ const DataSources = () => {
 	const [hasUserIdSupport, setHasUserIdSupport] = useState(false);
 	const [refreshing, setRefreshing] = useState(false);
 	const [loadedFromCache, setLoadedFromCache] = useState(false);
+	
+	
+	const [previousUserId, setPreviousUserId] = useState<string | null>(null);
+	
+	
+	const [componentKey, setComponentKey] = useState(0);
 
-	// קבלת פרטי המשתמש המחובר מה-Redux store
+	
 	const { user } = useAppSelector(state => state.auth);
+
+
+	const resetComponent = () => {
+		console.log("🔄 Resetting entire component state");
+		setDataSources([]);
+		setLoadedFromCache(false);
+		setHasUserIdSupport(false);
+		setConnectionStatus("idle");
+		setConnectionMessage("");
+		setIsModalOpen(false);
+		setEditingId(null);
+		setEditingName("");
+		setRefreshing(false);
+		setComponentKey(prev => prev + 1); 
+	};
+
+	
+	useEffect(() => {
+		console.log("=== User ID Changed Effect ===");
+		console.log("Previous user:", previousUserId);
+		console.log("Current user:", user?.id);
+		
+		if (user?.id) {
+
+			if (previousUserId !== user.id) {
+				console.log(` User changed: ${previousUserId} → ${user.id}`);
+				
+
+				if (previousUserId) {
+					clearUserLocalStorage(previousUserId);
+				}
+				
+	
+				resetComponent();
+				
+	
+				setPreviousUserId(user.id);
+				
+
+				setTimeout(() => {
+					const cachedData = loadFromLocalStorage(user.id);
+					if (cachedData && cachedData.length > 0) {
+						console.log(" Loading from cache for new user");
+						setDataSources(cachedData);
+						setLoadedFromCache(true);
+					} else {
+						console.log(" Fetching fresh data for new user");
+						fetchDataSourcesManually(true);
+					}
+				}, 100); 
+			}
+		} else {
+	
+			console.log(" No user - clearing everything");
+			resetComponent();
+			setPreviousUserId(null);
+			clearAllDataSourcesCache();
+		}
+	}, [user?.id]); 
 
 	const [formData, setFormData] = useState<DataSourceForm>({
 		projectId: "",
@@ -43,25 +108,35 @@ const DataSources = () => {
 		password: "",
 	});
 
-	// פונקציות Local Storage
+	
 	const getLocalStorageKey = (userId: string) => `dataSources_${userId}`;
 	const getCacheMetaKey = (userId: string) => `dataSourcesMeta_${userId}`;
 
 	const saveToLocalStorage = (userId: string, data: any[]) => {
 		try {
+	
+			const filteredData = data.filter(item => 
+				!item.userId || item.userId === userId
+			);
+			
+			if (filteredData.length !== data.length) {
+				console.warn(` Filtered out ${data.length - filteredData.length} items that don't belong to user ${userId}`);
+			}
+			
 			const key = getLocalStorageKey(userId);
 			const metaKey = getCacheMetaKey(userId);
 			
-			localStorage.setItem(key, JSON.stringify(data));
+			localStorage.setItem(key, JSON.stringify(filteredData));
 			localStorage.setItem(metaKey, JSON.stringify({
 				timestamp: Date.now(),
-				count: data.length,
-				hasUserIdSupport
+				count: filteredData.length,
+				hasUserIdSupport,
+				userId: userId 
 			}));
 			
-			console.log(`Saved ${data.length} data sources to localStorage for user ${userId}`);
+			console.log(` Saved ${filteredData.length} data sources to localStorage for user ${userId}`);
 		} catch (error) {
-			console.error("Failed to save to localStorage:", error);
+			console.error(" Failed to save to localStorage:", error);
 		}
 	};
 
@@ -77,20 +152,30 @@ const DataSources = () => {
 				const parsedData = JSON.parse(data);
 				const parsedMeta = JSON.parse(meta);
 				
-				// בדוק אם הקאש לא ישן מדי (למשל, 1 שעה)
+
 				const isExpired = (Date.now() - parsedMeta.timestamp) > (60 * 60 * 1000);
 				
-				if (!isExpired) {
-					console.log(`Loaded ${parsedData.length} data sources from localStorage for user ${userId}`);
+
+				const isValidForUser = parsedData.every((item: any) => 
+					!item.userId || item.userId === userId
+				);
+				
+				if (!isExpired && isValidForUser) {
+					console.log(` Loaded ${parsedData.length} data sources from localStorage for user ${userId}`);
 					setHasUserIdSupport(parsedMeta.hasUserIdSupport || false);
 					return parsedData;
 				} else {
-					console.log("localStorage cache expired, will fetch from server");
+					if (isExpired) {
+						console.log(" localStorage cache expired, will fetch from server");
+					} else {
+						console.log(" Cache contains data for different user, will fetch from server");
+					}
 					clearUserLocalStorage(userId);
 				}
 			}
 		} catch (error) {
-			console.error("Failed to load from localStorage:", error);
+			console.error(" Failed to load from localStorage:", error);
+			clearUserLocalStorage(userId);
 		}
 		return null;
 	};
@@ -103,35 +188,35 @@ const DataSources = () => {
 			localStorage.removeItem(key);
 			localStorage.removeItem(metaKey);
 			
-			console.log(`Cleared localStorage for user ${userId}`);
+			console.log(` Cleared localStorage for user ${userId}`);
 		} catch (error) {
-			console.error("Failed to clear localStorage:", error);
+			console.error(" Failed to clear localStorage:", error);
 		}
 	};
 
 	const clearAllDataSourcesCache = () => {
 		try {
-			// מחק את כל הקאש של data sources (לכל המשתמשים)
+
 			const keys = Object.keys(localStorage);
 			keys.forEach(key => {
 				if (key.startsWith('dataSources_') || key.startsWith('dataSourcesMeta_')) {
 					localStorage.removeItem(key);
 				}
 			});
-			console.log("Cleared all data sources cache");
+			console.log(" Cleared all data sources cache");
 		} catch (error) {
-			console.error("Failed to clear cache:", error);
+			console.error(" Failed to clear cache:", error);
 		}
 	};
 
-	// שאילתה עם דיבוג מפורט - רק אם אין קאש
+	
 	const {
 		data: dataSourcesData,
 		loading: dataSourcesLoading,
 		refetch,
 		error: dataSourcesError
 	} = useQuery(GET_DATA_SOURCES, {
-		skip: loadedFromCache, // דלג על השאילתה אם טענו מהקאש
+		skip: loadedFromCache, 
 		errorPolicy: 'all',
 		notifyOnNetworkStatusChange: true,
 		onCompleted: (data) => {
@@ -149,14 +234,14 @@ const DataSources = () => {
 	const [deleteDatasourceMutation] = useMutation(DELETE_DATASOURCE);
 	const [updateDataSourceMutation] = useMutation(UPDATE_DATASOURCE_NAME);
 
-	// פונקציה אופטימלית לביצוע fetch עם ניסיון userId
+
 	const fetchDataSourcesManually = async (forceRefresh = false) => {
 		try {
 			console.log("=== Manual Fetch Attempt ===");
 			console.log("Current user ID:", user?.id);
 			console.log("Force refresh:", forceRefresh);
 			
-			// אם לא forceRefresh, נסה קודם מהקאש
+	
 			if (!forceRefresh && user?.id) {
 				const cachedData = loadFromLocalStorage(user.id);
 				if (cachedData) {
@@ -166,7 +251,7 @@ const DataSources = () => {
 				}
 			}
 
-			// ניסיון 1: לנסות לקבל userId מהשרת
+
 			const responseWithUserId = await fetch('http://localhost:3000/api/v1/graphql', {
 				method: 'POST',
 				headers: {
@@ -196,7 +281,7 @@ const DataSources = () => {
 				const result = await responseWithUserId.json();
 				console.log("Result with userId:", result);
 				
-				// בדוק אם יש שגיאות GraphQL
+
 				if (result.errors && result.errors.length > 0) {
 					const hasUserIdError = result.errors.some((error: any) => 
 						error.message.includes('userId') || error.message.includes('Cannot query field')
@@ -208,12 +293,12 @@ const DataSources = () => {
 						console.error("Other GraphQL errors:", result.errors);
 					}
 				} else if (result.data?.getDataSources?.dataSource) {
-					// הצלחנו לקבל userId!
+
 					setHasUserIdSupport(true);
 					const allDataSources = result.data.getDataSources.dataSource;
 					console.log("All data sources with userId:", allDataSources);
 					
-					// סנן לפי המשתמש הנוכחי
+
 					if (user?.id) {
 						const userDataSources = allDataSources.filter(
 							(ds: any) => {
@@ -224,14 +309,13 @@ const DataSources = () => {
 						console.log("User's data sources:", userDataSources);
 						setDataSources(userDataSources);
 						
-						// שמור בקאש
+
 						saveToLocalStorage(user.id, userDataSources);
 						return;
 					}
 				}
 			}
 			
-			// ניסיון 2: אם userId לא עבד, נסה בלי userId
 			console.log("Trying without userId (fallback approach)...");
 			const response = await fetch('http://localhost:3000/api/v1/graphql', {
 				method: 'POST',
@@ -265,13 +349,13 @@ const DataSources = () => {
 					const allDataSources = result.data.getDataSources.dataSource;
 					console.log("All data sources (without userId):", allDataSources);
 					
-					// אסטרטגיית סינון בסיסית
+
 					if (user?.email) {
-						const recentDataSources = allDataSources.slice(-10); // 10 האחרונים
+						const recentDataSources = allDataSources.slice(-10); 
 						console.log("Showing recent data sources:", recentDataSources);
 						setDataSources(recentDataSources);
 						
-						// שמור בקאש גם במקרה הזה
+
 						if (user?.id) {
 							saveToLocalStorage(user.id, recentDataSources);
 						}
@@ -289,13 +373,13 @@ const DataSources = () => {
 		}
 	};
 
-	// פונקציה לרענון ידני
+	
 	const handleManualRefresh = async () => {
 		setRefreshing(true);
 		console.log("Manual refresh triggered - will fetch from server");
 		try {
-			setLoadedFromCache(false); // אפשר שאילתות שוב
-			await fetchDataSourcesManually(true); // force refresh
+			setLoadedFromCache(false); 
+			await fetchDataSourcesManually(true); 
 		} catch (error) {
 			console.error("Manual refresh failed:", error);
 		} finally {
@@ -303,78 +387,53 @@ const DataSources = () => {
 		}
 	};
 
-	// טעינה ראשונית כשהמשתמש נטען
 	useEffect(() => {
-		console.log("=== User Changed ===");
-		console.log("User loaded:", user);
-		
-		// תמיד נקה דאטה קודמת כשמשתמש משתנה
-		if (user?.id) {
-			console.log("User loaded, clearing previous data and loading for current user...");
-			setDataSources([]); // נקה דאטה קודמת
-			setLoadedFromCache(false);
-			
-			// נסה קודם מהקאש - רק עבור המשתמש הנוכחי
-			const cachedData = loadFromLocalStorage(user.id);
-			if (cachedData) {
-				console.log("Loaded from cache successfully for user:", user.id);
-				setDataSources(cachedData);
-				setLoadedFromCache(true);
-			} else {
-				console.log("No cache found, fetching from server...");
-				fetchDataSourcesManually();
-			}
-		} else if (!user) {
-			// אם אין משתמש (logout), נקה הכל
-			console.log("No user - clearing all data");
-			setDataSources([]);
-			setLoadedFromCache(false);
-		}
-	}, [user?.id]); // תלוי ב-user.id ולא ב-user כולו
-
-	// הוסף useEffect להאזנה לשינויי משתמש בזמן אמת
-	useEffect(() => {
-		// אם המשתמש השתנה (התחלף משתמש), נקה קאש ישן
-		const previousUserId = localStorage.getItem('currentUserId');
-		
 		if (user?.id && previousUserId && previousUserId !== user.id) {
-			console.log(`User changed from ${previousUserId} to ${user.id} - clearing old cache`);
-			
-			// נקה קאש של המשתמש הקודם
-			if (previousUserId) {
-				clearUserLocalStorage(previousUserId);
-			}
-			
-			// נקה גם דאטה נוכחית
-			setDataSources([]);
-			setLoadedFromCache(false);
+			console.log(`🧹 Clearing Apollo cache for user switch: ${previousUserId} → ${user.id}`);
+			client.clearStore().catch(console.error);
 		}
-		
-		// שמור את המשתמש הנוכחי
-		if (user?.id) {
-			localStorage.setItem('currentUserId', user.id);
-		} else {
-			localStorage.removeItem('currentUserId');
-		}
-	}, [user?.id]);
+	}, [user?.id, previousUserId]);
 
-	// useEffect לטיפול ב-GraphQL data (רק אם לא טענו מקאש)
+
 	useEffect(() => {
-		if (loadedFromCache) return; // דלג אם טענו מקאש
+		if (user?.id && dataSources.length > 0) {
+			console.log(" Validating data ownership for user:", user.id);
+			
+			let hasInvalidData = false;
+			
+			dataSources.forEach((ds, index) => {
+				if (ds.userId && ds.userId !== user.id) {
+					console.warn(` Item ${index} belongs to user ${ds.userId}, not ${user.id}:`, ds);
+					hasInvalidData = true;
+				}
+			});
+			
+			if (hasInvalidData) {
+				console.error(" CONTAMINATED DATA DETECTED - FORCE REFRESH");
+				resetComponent();
+				setTimeout(() => {
+					fetchDataSourcesManually(true);
+				}, 100);
+			}
+		}
+	}, [dataSources, user?.id]); 
+
+
+	useEffect(() => {
 		
 		console.log("=== GraphQL Data Debug ===");
 		console.log("dataSourcesData:", dataSourcesData);
 		console.log("dataSourcesLoading:", dataSourcesLoading);
 		console.log("dataSourcesError:", dataSourcesError);
 		
-		// אם יש שגיאה ב-GraphQL, נסה fetch ישיר
+
 		if (dataSourcesError && user?.id) {
 			console.log("GraphQL error detected, trying manual fetch...");
 			fetchDataSourcesManually();
 			return;
 		}
 		
-		// אם GraphQL הצליח
+
 		if (dataSourcesData?.getDataSources?.dataSource) {
 			const allDataSources = dataSourcesData.getDataSources.dataSource;
 			console.log("All data sources from GraphQL:", allDataSources);
@@ -396,7 +455,8 @@ const DataSources = () => {
 	}, [dataSourcesData, dataSourcesLoading, dataSourcesError, hasUserIdSupport, loadedFromCache]);
 
 	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const { name, value } = e.target;
+		const target = e.target;
+		const { name, value } = target;
 		setFormData((prev) => ({
 			...prev,
 			[name]: value,
@@ -504,15 +564,15 @@ const DataSources = () => {
 				const result = await response.json();
 				console.log("Create result:", result);
 
-				// אם יצירה הצליחה, הוסף לדאטה המקומית מיד
+	
 				if (result.data?.createPostgresqlDataSource?.dataSource) {
 					const newDataSource = result.data.createPostgresqlDataSource.dataSource;
 					
-					// הוסף לרשימה הקיימת
+	
 					const updatedDataSources = [...dataSources, newDataSource];
 					setDataSources(updatedDataSources);
 					
-					// עדכן קאש
+
 					if (user?.id) {
 						saveToLocalStorage(user.id, updatedDataSources);
 					}
@@ -520,7 +580,7 @@ const DataSources = () => {
 					closeModal();
 					alert("Data source created successfully!");
 				} else {
-					// אם לא קיבלנו את הדאטה בחזרה, רענן מהשרת
+
 					closeModal();
 					alert("Data source created successfully!");
 					
@@ -539,13 +599,12 @@ const DataSources = () => {
 			console.error("=== Create Error ===");
 			console.error("Error:", error);
 			
-			// טיפול גמיש בשגיאות - אבל עדיין רענן מהשרת
+
 			if (error.message.includes('400') || error.message.includes('Bad Request')) {
 				console.log("Ignoring 400 error, data source was probably created");
 				closeModal();
 				alert("Data source created successfully!");
 				
-				// רענן מהשרת במקרה של שגיאה
 				if (user?.id) {
 					clearUserLocalStorage(user.id);
 				}
@@ -573,12 +632,9 @@ const DataSources = () => {
 					datasourceId
 				},
 			});
-
-			// עדכן מקומי
 			const updatedDataSources = dataSources.filter((ds) => ds.id !== datasourceId);
 			setDataSources(updatedDataSources);
-			
-			// עדכן קאש
+		
 			if (user?.id) {
 				saveToLocalStorage(user.id, updatedDataSources);
 			}
@@ -643,7 +699,6 @@ const DataSources = () => {
 				
 				setDataSources(updatedDataSources);
 				
-				// עדכן קאש
 				if (user?.id) {
 					saveToLocalStorage(user.id, updatedDataSources);
 				}
@@ -668,7 +723,7 @@ const DataSources = () => {
 		"w-full p-3 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder-slate-400";
 
 	return (
-		<div className="flex h-screen bg-gradient-to-br from-slate-100 via-indigo-50 to-slate-100">
+		<div key={componentKey} className="flex h-screen bg-gradient-to-br from-slate-100 via-indigo-50 to-slate-100">
 			<Sidebar />
 			<div className="flex-1 flex flex-col">
 				<div className="flex-1 overflow-y-auto bg-gradient-to-b from-indigo-50/90 to-slate-50/90 pb-24">
@@ -686,6 +741,11 @@ const DataSources = () => {
 											: "Recent data connections"
 										}
 										{loadedFromCache && " (from cache)"}
+										{user?.id && (
+											<span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+												User: {user.id.slice(-8)}
+											</span>
+										)}
 									</p>
 								</div>
 							</div>
@@ -861,7 +921,6 @@ const DataSources = () => {
 				</div>
 			</div>
 
-			{/* Modal for Adding New Data Source */}
 			{isModalOpen && (
 				<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
 					<div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700">
