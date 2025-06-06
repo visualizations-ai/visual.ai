@@ -7,6 +7,7 @@ import { HomePage } from "./features/pages/home-page";
 import { LandingPage } from "./features/pages/landing-page";
 import ProtectedRoute from "./shared/⁠protectedRoutes";
 import DataSources from "./features/pages/data-sources";
+import SqlEditor from "./features/pages/sql-editor";
 import { ApolloProvider } from "@apollo/client";
 import client from "./graphql/apollo-client";
 
@@ -32,6 +33,48 @@ function App() {
               element={
                 <ProtectedRoute>
                   <DataSources />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/sql-editor"
+              element={
+                <ProtectedRoute>
+                  <SqlEditor />
+                </ProtectedRoute>
+              }
+            />
+            {/* Future routes */}
+            <Route
+              path="/purchase-recommendations"
+              element={
+                <ProtectedRoute>
+                  <div className="p-8 text-center">
+                    <h1 className="text-2xl font-bold text-gray-800">Purchase Recommendations</h1>
+                    <p className="text-gray-600 mt-2">Coming soon...</p>
+                  </div>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/forecasts"
+              element={
+                <ProtectedRoute>
+                  <div className="p-8 text-center">
+                    <h1 className="text-2xl font-bold text-gray-800">Forecasts</h1>
+                    <p className="text-gray-600 mt-2">Coming soon...</p>
+                  </div>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <div className="p-8 text-center">
+                    <h1 className="text-2xl font-bold text-gray-800">Settings</h1>
+                    <p className="text-gray-600 mt-2">Coming soon...</p>
+                  </div>
                 </ProtectedRoute>
               }
             />

@@ -111,10 +111,10 @@ export const HomePage = () => {
 								<Loader2 className="w-12 h-12 animate-spin text-indigo-600 mx-auto" />
 							</div>
 							<h3 className="text-lg font-semibold text-gray-900 mb-2">
-								מעבד את השאלה שלך...
+								Processing your question...
 							</h3>
 							<p className="text-gray-600 mb-4">
-								אנא המתן בזמן שאנחנו מחפשים את התשובה הטובה ביותר
+								Please wait while we search for the best answer.
 							</p>
 							
 							<div className="w-full bg-gray-200 rounded-full h-2 mb-2">
@@ -124,7 +124,7 @@ export const HomePage = () => {
 								></div>
 							</div>
 							<p className="text-sm text-gray-500">
-								{Math.round(progress)}% הושלם
+								{Math.round(progress)}% Completed
 							</p>
 						</div>
 					</div>
