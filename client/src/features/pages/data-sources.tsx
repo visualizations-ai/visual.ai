@@ -10,14 +10,10 @@ import {
   Edit3,
   Trash2,
   RefreshCw,
-  Menu,
-  LogOut,
 } from "lucide-react";
 import { useMutation, useQuery } from "@apollo/client";
-import { Sidebar } from "../../shared/sidebar";
-import { useAppSelector, useAppDispatch } from "../../hooks/redux-hooks";
-import { useNavigate } from "react-router-dom";
-import { logoutUser } from "../../store/auth-slice";
+import { AppLayout } from "../../shared/app-layout";
+import { useAppSelector } from "../../hooks/redux-hooks";
 import {
   GET_DATA_SOURCES,
   TEST_CONNECTION,
@@ -35,20 +31,15 @@ export interface DataSourceForm {
   password: string;
 }
 
-const ImprovedDataSources = () => {
+const DataSources = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<
-    "idle" | "success" | "error"
-  >("idle");
+  const [connectionStatus, setConnectionStatus] = useState<"idle" | "success" | "error">("idle");
   const [connectionMessage, setConnectionMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const { user } = useAppSelector((state) => state.auth);
-  const dispatch = useAppDispatch();
-  const navigate = useNavigate();
 
   const [formData, setFormData] = useState<DataSourceForm>({
     projectId: "",
@@ -76,23 +67,9 @@ const ImprovedDataSources = () => {
 
   const dataSources = dataSourcesData?.getDataSources?.dataSource || [];
 
-  const handleLogout = async () => {
-    try {
-      await dispatch(logoutUser()).unwrap();
-      navigate("/login");
-    } catch (error) {
-      console.error("Logout failed:", error);
-      navigate("/login");
-    }
-  };
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (connectionStatus === "success") {
       setConnectionStatus("idle");
       setConnectionMessage("");
@@ -118,19 +95,14 @@ const ImprovedDataSources = () => {
           },
         },
       });
-
       setConnectionStatus("success");
       setConnectionMessage(result.data.checkPostgresqlConnection.message);
     } catch (error: any) {
       setConnectionStatus("error");
       let errorMessage = "Connection failed";
-      if (error.graphQLErrors && error.graphQLErrors.length > 0) {
-        errorMessage = error.graphQLErrors[0].message;
-      } else if (error.networkError) {
-        errorMessage = `Network error: ${error.networkError.message}`;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
+      if (error.graphQLErrors?.[0]) errorMessage = error.graphQLErrors[0].message;
+      else if (error.networkError) errorMessage = `Network error: ${error.networkError.message}`;
+      else if (error.message) errorMessage = error.message;
       setConnectionMessage(errorMessage);
     }
   };
@@ -141,7 +113,6 @@ const ImprovedDataSources = () => {
       setConnectionMessage("Project ID is required");
       return;
     }
-
     if (connectionStatus !== "success") {
       setConnectionStatus("error");
       setConnectionMessage("Please test the connection first");
@@ -162,7 +133,6 @@ const ImprovedDataSources = () => {
         },
         refetchQueries: [{ query: GET_DATA_SOURCES }],
       });
-
       closeModal();
       alert("Data source created successfully!");
     } catch (error: any) {
@@ -172,10 +142,7 @@ const ImprovedDataSources = () => {
   };
 
   const handleDelete = async (datasourceId: string, projectId: string) => {
-    if (!confirm(`Are you sure you want to delete data source "${projectId}"?`)) {
-      return;
-    }
-
+    if (!confirm(`Are you sure you want to delete data source "${projectId}"?`)) return;
     try {
       await deleteDatasourceMutation({
         variables: { datasourceId },
@@ -197,16 +164,11 @@ const ImprovedDataSources = () => {
       alert("Name cannot be empty");
       return;
     }
-
     try {
       const { data } = await updateDataSourceMutation({
-        variables: {
-          datasourceId: id,
-          newName: editingName.trim(),
-        },
+        variables: { datasourceId: id, newName: editingName.trim() },
         refetchQueries: [{ query: GET_DATA_SOURCES }],
       });
-
       if (data?.updateDataSourceName?.success) {
         setEditingId(null);
         setEditingName("");
@@ -215,7 +177,6 @@ const ImprovedDataSources = () => {
       }
     } catch (error: any) {
       alert(`Failed to update name: ${error.message}`);
-      console.error("Update error:", error);
     }
   };
 
@@ -235,260 +196,183 @@ const ImprovedDataSources = () => {
   };
 
   const resetForm = () => {
-    setFormData({
-      projectId: "",
-      host: "",
-      port: "5432",
-      databaseName: "",
-      username: "",
-      password: "",
-    });
+    setFormData({ projectId: "", host: "", port: "5432", databaseName: "", username: "", password: "" });
     setConnectionStatus("idle");
     setConnectionMessage("");
     setShowPassword(false);
   };
 
-  const handleRefresh = () => {
-    refetchDataSources();
-  };
+  const inputClass = "w-full p-3 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder-slate-400";
 
-  const inputClass =
-    "w-full p-3 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder-slate-400";
+  const headerActions = (
+    <>
+      <button
+        onClick={() => refetchDataSources()}
+        disabled={dataSourcesLoading}
+        className="p-2 lg:px-3 lg:py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 lg:border lg:border-slate-300 flex items-center gap-2"
+        title="Refresh"
+      >
+        <RefreshCw size={16} className={dataSourcesLoading ? "animate-spin" : ""} />
+        <span className="hidden lg:inline">{dataSourcesLoading ? "Refreshing..." : "Refresh"}</span>
+      </button>
+      
+      <button
+        onClick={openModal}
+        className="p-2 lg:px-4 lg:py-2 text-white bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-lg hover:opacity-90 transition-colors flex items-center gap-2"
+        title="Add Data Source"
+      >
+        <Plus size={16} className="lg:w-5 lg:h-5" />
+        <span className="hidden lg:inline">Add Data Source</span>
+      </button>
+    </>
+  );
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-slate-100 via-indigo-50 to-slate-100">
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:block">
-        <Sidebar />
-      </div>
-
-      {/* Mobile Sidebar */}
-      {isMobileSidebarOpen && (
-        <>
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-            onClick={() => setIsMobileSidebarOpen(false)}
-          />
-          <div className="fixed inset-y-0 left-0 w-72 bg-gradient-to-b from-slate-900 to-slate-800 z-50 lg:hidden transform transition-transform duration-300 ease-in-out">
-            <Sidebar forceOpen={true} onClose={() => setIsMobileSidebarOpen(false)} />
-          </div>
-        </>
-      )}
-      
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile Header */}
-        <div className="lg:hidden bg-gradient-to-b from-indigo-50/90 to-slate-50/90 border-b border-slate-200">
-          <div className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <button
-                onClick={() => setIsMobileSidebarOpen(true)}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                <Menu size={20} className="text-slate-700" />
-              </button>
-              
-              <Database className="text-slate-700 flex-shrink-0" size={24} />
-              
-              <div className="min-w-0 flex-1">
-                <h1 className="text-lg font-semibold text-slate-800 truncate">
-                  Data Sources
-                </h1>
+    <AppLayout
+      title="Data Sources"
+      subtitle={`Manage your database connections${user?.id ? ` • User: ${user.id.slice(-8)}` : ""}`}
+      icon={<Database className="text-white lg:text-white text-slate-700 lg:w-8 lg:h-8" size={24} />}
+      headerActions={headerActions}
+    >
+      <div className="bg-gradient-to-b from-indigo-50/90 to-slate-50/90 min-h-full">
+        <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
+          {dataSourcesError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+                <span className="text-red-800 font-medium">Error loading data sources</span>
               </div>
+              <p className="text-red-700 text-sm mt-1">{dataSourcesError.message}</p>
             </div>
+          )}
 
-            <div className="flex items-center gap-2 ml-3">
-              <button
-                onClick={handleRefresh}
-                disabled={dataSourcesLoading}
-                className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
-                title="Refresh"
-              >
-                <RefreshCw size={16} className={dataSourcesLoading ? "animate-spin" : ""} />
-              </button>
-              
+          {dataSourcesLoading ? (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
+              <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-slate-500">Loading data sources...</p>
+            </div>
+          ) : dataSources.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
+              <Database className="mx-auto text-slate-400 mb-4" size={48} />
+              <h3 className="text-lg font-medium text-slate-700 mb-2">No data sources yet</h3>
+              <p className="text-slate-500 mb-6">Create your first data source to get started</p>
               <button
                 onClick={openModal}
-                className="p-2 text-white bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-lg"
-                title="Add Data Source"
+                className="px-6 py-2 text-white rounded-lg hover:opacity-90 transition-colors bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900"
               >
-                <Plus size={16} />
-              </button>
-              
-              <button
-                onClick={handleLogout}
-                className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                title="Logout"
-              >
-                <LogOut size={18} />
+                Add Your First Data Source
               </button>
             </div>
-          </div>
-        </div>
-
-        {/* Desktop Header */}
-        <div className="hidden lg:flex items-center justify-between p-6 bg-gradient-to-b from-indigo-50/90 to-slate-50/90 border-b border-slate-200">
-          <div className="flex items-center gap-3">
-            <Database className="text-slate-700" size={28} />
-            <div>
-              <h1 className="text-2xl font-semibold text-slate-800">Data Sources</h1>
-              <p className="text-sm text-slate-600">
-                Manage your database connections
-                {user?.id && (
-                  <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                    User: {user.id.slice(-8)}
-                  </span>
-                )}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleRefresh}
-              disabled={dataSourcesLoading}
-              className="flex items-center gap-2 px-3 py-2 text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
-              title="Refresh data sources"
-            >
-              <RefreshCw size={16} className={dataSourcesLoading ? "animate-spin" : ""} />
-              {dataSourcesLoading ? "Refreshing..." : "Refresh"}
-            </button>
-            <button
-              onClick={openModal}
-              className="flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900"
-            >
-              <Plus size={20} />
-              Add Data Source
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto bg-gradient-to-b from-indigo-50/90 to-slate-50/90 pb-24">
-          <div className="max-w-6xl mx-auto h-full p-4 sm:p-6">
-            {dataSourcesError && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-red-600" />
-                  <span className="text-red-800 font-medium">Error loading data sources</span>
-                </div>
-                <p className="text-red-700 text-sm mt-1">{dataSourcesError.message}</p>
+          ) : (
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+              <div className="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-900">Data Sources ({dataSources.length})</h2>
+                <p className="text-sm text-gray-600 mt-1">Your database connections</p>
               </div>
-            )}
 
-            {dataSourcesLoading ? (
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
-                <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-slate-500">Loading data sources...</p>
-              </div>
-            ) : dataSources.length === 0 ? (
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
-                <Database className="mx-auto text-slate-400 mb-4" size={48} />
-                <h3 className="text-lg font-medium text-slate-700 mb-2">
-                  No data sources yet
-                </h3>
-                <p className="text-slate-500 mb-6">
-                  Create your first data source to get started
-                </p>
-                <button
-                  onClick={openModal}
-                  className="px-6 py-2 text-white rounded-lg hover:opacity-90 transition-colors bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900"
-                >
-                  Add Your First Data Source
-                </button>
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-                <div className="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-200">
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    Data Sources ({dataSources.length})
-                  </h2>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Your database connections
-                  </p>
+              <div className="hidden md:block bg-gray-50 px-4 sm:px-6 py-3 border-b border-gray-200">
+                <div className="grid grid-cols-12 gap-4 text-sm font-medium text-gray-600">
+                  <div className="col-span-3">Data Source</div>
+                  <div className="col-span-2">Type</div>
+                  <div className="col-span-2">Database</div>
+                  <div className="col-span-2">Status</div>
+                  <div className="col-span-2">Created</div>
+                  <div className="col-span-1">Actions</div>
                 </div>
+              </div>
 
-                {/* Desktop Table Header */}
-                <div className="hidden md:block bg-gray-50 px-4 sm:px-6 py-3 border-b border-gray-200">
-                  <div className="grid grid-cols-12 gap-4 text-sm font-medium text-gray-600">
-                    <div className="col-span-3">Data Source</div>
-                    <div className="col-span-2">Type</div>
-                    <div className="col-span-2">Database</div>
-                    <div className="col-span-2">Status</div>
-                    <div className="col-span-2">Created</div>
-                    <div className="col-span-1">Actions</div>
-                  </div>
-                </div>
+              <div className="divide-y divide-gray-100">
+                {dataSources.map((dataSource: any) => (
+                  <div key={dataSource.id} className="px-4 sm:px-6 py-4 hover:bg-gray-50 transition-colors">
+                    <div className="hidden md:grid grid-cols-12 gap-4">
+                      <div className="col-span-3 flex items-center gap-3">
+                        <div className="bg-indigo-100 p-2 rounded-lg">
+                          <Database className="w-4 h-4 text-indigo-600" />
+                        </div>
+                        <div>
+                          {editingId === dataSource.id ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={editingName}
+                                onChange={(e) => setEditingName(e.target.value)}
+                                className="px-2 py-1 text-sm border border-indigo-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                autoFocus
+                              />
+                              <button onClick={() => handleEditSave(dataSource.id)} className="text-green-600 hover:text-green-700">
+                                <CheckCircle className="w-4 h-4" />
+                              </button>
+                              <button onClick={handleEditCancel} className="text-red-600 hover:text-red-700">×</button>
+                            </div>
+                          ) : (
+                            <div className="font-semibold text-gray-900">{dataSource.projectId}</div>
+                          )}
+                          <div className="text-sm text-gray-500">Recently created</div>
+                        </div>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          {dataSource.type}
+                        </span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-sm text-gray-900">{dataSource.database}</span>
+                      </div>
+                      <div className="col-span-2">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-500" />
+                          <span className="text-sm font-medium text-green-600">Connected</span>
+                        </div>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-sm text-gray-500">Recently</span>
+                      </div>
+                      <div className="col-span-1 flex items-center gap-1">
+                        <button
+                          onClick={() => handleEditStart(dataSource)}
+                          className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                          title="Edit name"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(dataSource.id, dataSource.projectId)}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete data source"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
 
-                <div className="divide-y divide-gray-100">
-                  {dataSources.map((dataSource: any) => (
-                    <div
-                      key={dataSource.id}
-                      className="px-4 sm:px-6 py-4 hover:bg-gray-50 transition-colors"
-                    >
-                      {/* Desktop Layout */}
-                      <div className="hidden md:grid grid-cols-12 gap-4">
-                        <div className="col-span-3 flex items-center gap-3">
-                          <div className="bg-indigo-100 p-2 rounded-lg">
+                    <div className="md:hidden space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-indigo-100 p-2 rounded-lg flex-shrink-0">
                             <Database className="w-4 h-4 text-indigo-600" />
                           </div>
-                          <div>
+                          <div className="min-w-0 flex-1">
                             {editingId === dataSource.id ? (
                               <div className="flex items-center gap-2">
                                 <input
                                   type="text"
                                   value={editingName}
                                   onChange={(e) => setEditingName(e.target.value)}
-                                  className="px-2 py-1 text-sm border border-indigo-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  className="px-2 py-1 text-sm border border-indigo-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 flex-1"
                                   autoFocus
                                 />
-                                <button
-                                  onClick={() => handleEditSave(dataSource.id)}
-                                  className="text-green-600 hover:text-green-700"
-                                >
+                                <button onClick={() => handleEditSave(dataSource.id)} className="text-green-600 hover:text-green-700 flex-shrink-0">
                                   <CheckCircle className="w-4 h-4" />
                                 </button>
-                                <button
-                                  onClick={handleEditCancel}
-                                  className="text-red-600 hover:text-red-700"
-                                >
-                                  ×
-                                </button>
+                                <button onClick={handleEditCancel} className="text-red-600 hover:text-red-700 flex-shrink-0">×</button>
                               </div>
                             ) : (
-                              <div className="font-semibold text-gray-900">
-                                {dataSource.projectId}
-                              </div>
+                              <div className="font-semibold text-gray-900 truncate">{dataSource.projectId}</div>
                             )}
-                            <div className="text-sm text-gray-500">
-                              Recently created
-                            </div>
+                            <div className="text-sm text-gray-500">Recently created</div>
                           </div>
                         </div>
-
-                        <div className="col-span-2">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                            {dataSource.type}
-                          </span>
-                        </div>
-
-                        <div className="col-span-2">
-                          <span className="text-sm text-gray-900">
-                            {dataSource.database}
-                          </span>
-                        </div>
-
-                        <div className="col-span-2">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4 text-green-500" />
-                            <span className="text-sm font-medium text-green-600">
-                              Connected
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="col-span-2">
-                          <span className="text-sm text-gray-500">Recently</span>
-                        </div>
-
-                        <div className="col-span-1 flex items-center gap-1">
+                        <div className="flex items-center gap-1 flex-shrink-0">
                           <button
                             onClick={() => handleEditStart(dataSource)}
                             className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
@@ -497,9 +381,7 @@ const ImprovedDataSources = () => {
                             <Edit3 className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() =>
-                              handleDelete(dataSource.id, dataSource.projectId)
-                            }
+                            onClick={() => handleDelete(dataSource.id, dataSource.projectId)}
                             className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             title="Delete data source"
                           >
@@ -507,191 +389,69 @@ const ImprovedDataSources = () => {
                           </button>
                         </div>
                       </div>
-
-                      {/* Mobile Layout */}
-                      <div className="md:hidden space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="bg-indigo-100 p-2 rounded-lg flex-shrink-0">
-                              <Database className="w-4 h-4 text-indigo-600" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              {editingId === dataSource.id ? (
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="text"
-                                    value={editingName}
-                                    onChange={(e) => setEditingName(e.target.value)}
-                                    className="px-2 py-1 text-sm border border-indigo-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 flex-1"
-                                    autoFocus
-                                  />
-                                  <button
-                                    onClick={() => handleEditSave(dataSource.id)}
-                                    className="text-green-600 hover:text-green-700 flex-shrink-0"
-                                  >
-                                    <CheckCircle className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={handleEditCancel}
-                                    className="text-red-600 hover:text-red-700 flex-shrink-0"
-                                  >
-                                    ×
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="font-semibold text-gray-900 truncate">
-                                  {dataSource.projectId}
-                                </div>
-                              )}
-                              <div className="text-sm text-gray-500">
-                                Recently created
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <button
-                              onClick={() => handleEditStart(dataSource)}
-                              className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                              title="Edit name"
-                            >
-                              <Edit3 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleDelete(dataSource.id, dataSource.projectId)
-                              }
-                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete data source"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <span className="text-gray-500 block">Type:</span>
-                            <div className="mt-1">
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                {dataSource.type}
-                              </span>
-                            </div>
-                          </div>
-                          <div>
-                            <span className="text-gray-500 block">Database:</span>
-                            <div className="mt-1 text-gray-900 truncate">{dataSource.database}</div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4 text-green-500" />
-                            <span className="text-sm font-medium text-green-600">
-                              Connected
+                      
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-500 block">Type:</span>
+                          <div className="mt-1">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                              {dataSource.type}
                             </span>
                           </div>
-                          <span className="text-sm text-gray-500">Recently</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 block">Database:</span>
+                          <div className="mt-1 text-gray-900 truncate">{dataSource.database}</div>
                         </div>
                       </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-500" />
+                          <span className="text-sm font-medium text-green-600">Connected</span>
+                        </div>
+                        <span className="text-sm text-gray-500">Recently</span>
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
+
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700">
             <div className="p-6 border-b border-slate-700">
-              <h2 className="text-xl font-semibold text-white mb-2">
-                Add New Data Source
-              </h2>
-              <p className="text-slate-400 text-sm">
-                Connect to your PostgreSQL database
-              </p>
+              <h2 className="text-xl font-semibold text-white mb-2">Add New Data Source</h2>
+              <p className="text-slate-400 text-sm">Connect to your PostgreSQL database</p>
             </div>
 
             <div className="p-6 space-y-4 max-h-96 overflow-y-auto">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Project ID *
-                </label>
-                <input
-                  type="text"
-                  name="projectId"
-                  value={formData.projectId}
-                  onChange={handleInputChange}
-                  className={inputClass}
-                  placeholder="Enter project identifier"
-                  required
-                />
+                <label className="block text-sm font-medium text-slate-300 mb-2">Project ID *</label>
+                <input type="text" name="projectId" value={formData.projectId} onChange={handleInputChange} className={inputClass} placeholder="Enter project identifier" required />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Host *
-                </label>
-                <input
-                  type="text"
-                  name="host"
-                  value={formData.host}
-                  onChange={handleInputChange}
-                  className={inputClass}
-                  placeholder="localhost or IP address"
-                  required
-                />
+                <label className="block text-sm font-medium text-slate-300 mb-2">Host *</label>
+                <input type="text" name="host" value={formData.host} onChange={handleInputChange} className={inputClass} placeholder="localhost or IP address" required />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Port
-                </label>
-                <input
-                  type="text"
-                  name="port"
-                  value={formData.port}
-                  onChange={handleInputChange}
-                  className={inputClass}
-                  placeholder="5432"
-                />
+                <label className="block text-sm font-medium text-slate-300 mb-2">Port</label>
+                <input type="text" name="port" value={formData.port} onChange={handleInputChange} className={inputClass} placeholder="5432" />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Database Name *
-                </label>
-                <input
-                  type="text"
-                  name="databaseName"
-                  value={formData.databaseName}
-                  onChange={handleInputChange}
-                  className={inputClass}
-                  placeholder="Enter database name"
-                  required
-                />
+                <label className="block text-sm font-medium text-slate-300 mb-2">Database Name *</label>
+                <input type="text" name="databaseName" value={formData.databaseName} onChange={handleInputChange} className={inputClass} placeholder="Enter database name" required />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Username *
-                </label>
-                <input
-                  type="text"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleInputChange}
-                  className={inputClass}
-                  placeholder="Database username"
-                  required
-                />
+                <label className="block text-sm font-medium text-slate-300 mb-2">Username *</label>
+                <input type="text" name="username" value={formData.username} onChange={handleInputChange} className={inputClass} placeholder="Database username" required />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Password *
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Password *</label>
                 <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
@@ -707,29 +467,15 @@ const ImprovedDataSources = () => {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-300"
                   >
-                    {showPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
               </div>
 
               {connectionMessage && (
-                <div
-                  className={`p-3 rounded-lg border ${
-                    connectionStatus === "success"
-                      ? "bg-green-900/50 border-green-700 text-green-300"
-                      : "bg-red-900/50 border-red-700 text-red-300"
-                  }`}
-                >
+                <div className={`p-3 rounded-lg border ${connectionStatus === "success" ? "bg-green-900/50 border-green-700 text-green-300" : "bg-red-900/50 border-red-700 text-red-300"}`}>
                   <div className="flex items-center gap-2">
-                    {connectionStatus === "success" ? (
-                      <CheckCircle className="w-4 h-4" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4" />
-                    )}
+                    {connectionStatus === "success" ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                     <span className="text-sm">{connectionMessage}</span>
                   </div>
                 </div>
@@ -747,10 +493,7 @@ const ImprovedDataSources = () => {
               </button>
 
               <div className="flex gap-2 flex-1">
-                <button
-                  onClick={closeModal}
-                  className="flex-1 px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 transition-colors"
-                >
+                <button onClick={closeModal} className="flex-1 px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 transition-colors">
                   Cancel
                 </button>
                 <button
@@ -765,8 +508,8 @@ const ImprovedDataSources = () => {
           </div>
         </div>
       )}
-    </div>
+    </AppLayout>
   );
 };
 
-export default ImprovedDataSources;
+export default DataSources;

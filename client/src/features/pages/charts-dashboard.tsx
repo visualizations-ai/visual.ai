@@ -1,21 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { Sidebar } from "../../shared/sidebar";
+import { AppLayout } from "../../shared/app-layout";
 import { 
   BarChart3, 
   Play,
   Download,
   Trash2,
-  Menu,
-  LogOut,
   AlertTriangle,
   ChevronDown,
   Sparkles
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useAppDispatch, useAppSelector } from "../../hooks/redux-hooks";
-import { logoutUser } from "../../store/auth-slice";
+import { useAppSelector } from "../../hooks/redux-hooks";
 
-// Chart.js imports with proper registration
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -31,7 +27,6 @@ import {
 
 import { Bar, Line, Pie, Doughnut } from 'react-chartjs-2';
 
-// Register Chart.js components
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -44,7 +39,7 @@ ChartJS.register(
   Legend
 );
 
-// Types
+
 interface ChartPoint {
   x: number;
   y: number;
@@ -71,144 +66,39 @@ interface NewChartForm {
   type: 'bar' | 'line' | 'pie' | 'doughnut';
 }
 
-// Color palette
 const colors = [
-  'rgba(99, 102, 241, 0.8)',   // Indigo
-  'rgba(236, 72, 153, 0.8)',   // Pink
-  'rgba(34, 197, 94, 0.8)',    // Green
-  'rgba(251, 146, 60, 0.8)',   // Orange
-  'rgba(168, 85, 247, 0.8)',   // Purple
-  'rgba(14, 165, 233, 0.8)',   // Sky blue
-  'rgba(239, 68, 68, 0.8)',    // Red
-  'rgba(245, 158, 11, 0.8)',   // Amber
+  'rgba(99, 102, 241, 0.8)',  
+  'rgba(236, 72, 153, 0.8)',   
+  'rgba(34, 197, 94, 0.8)',    
+  'rgba(251, 146, 60, 0.8)',   
+  'rgba(168, 85, 247, 0.8)',   
+  'rgba(14, 165, 233, 0.8)',   
+  'rgba(239, 68, 68, 0.8)',    
+  'rgba(245, 158, 11, 0.8)',   
 ];
 
-// Helper functions
-const convertAIToChartJS = (aiResponse: any, chartType: string) => {
-  try {
-    console.log('Converting AI response:', aiResponse);
-    
-    // Handle the response structure from your server
-    const { promptResult } = aiResponse;
-    
-    if (!promptResult?.input?.chart) {
-      console.warn('Invalid AI response format, using fallback data');
-      throw new Error('Invalid AI response format');
-    }
-
-    const chartConfig = promptResult.input.chart;
-    
-    if (chartConfig.data && Array.isArray(chartConfig.data)) {
-      const data = chartConfig.data;
-      
-      switch (chartType) {
-        case 'bar':
-        case 'line': {
-          const labels = data.map((item: any, index: number) => {
-            return item[chartConfig.xAxis] || 
-                   item.label || 
-                   item.name || 
-                   `Item ${index + 1}`;
-          });
-          
-          const values = data.map((item: any) => {
-            const value = item[chartConfig.yAxis] || item.value || item.count || 0;
-            return Number(value);
-          });
-          
-          return {
-            labels,
-            datasets: [{
-              label: chartConfig.title || chartConfig.yAxis || 'Value',
-              data: values,
-              backgroundColor: chartType === 'bar' 
-                ? colors.slice(0, values.length)
-                : 'rgba(99, 102, 241, 0.2)',
-              borderColor: 'rgba(99, 102, 241, 1)',
-              borderWidth: 2,
-              fill: chartType === 'line',
-              tension: chartType === 'line' ? 0.4 : 0,
-            }]
-          };
-        }
-        
-        case 'pie':
-        case 'doughnut': {
-          const pieLabels = data.map((item: any, index: number) => {
-            return item.segment || 
-                   item.label || 
-                   item.name || 
-                   item[chartConfig.xAxis] || 
-                   `Segment ${index + 1}`;
-          });
-          
-          const pieValues = data.map((item: any) => {
-            const value = item.value || item[chartConfig.yAxis] || item.count || 0;
-            return Number(value);
-          });
-          
-          return {
-            labels: pieLabels,
-            datasets: [{
-              data: pieValues,
-              backgroundColor: colors.slice(0, pieValues.length),
-              borderColor: '#ffffff',
-              borderWidth: 2,
-            }]
-          };
-        }
-        
-        default: {
-          return {
-            labels: ['Data 1', 'Data 2', 'Data 3'],
-            datasets: [{
-              label: 'Sample Data',
-              data: [10, 20, 30],
-              backgroundColor: colors.slice(0, 3),
-              borderColor: 'rgba(99, 102, 241, 1)',
-              borderWidth: 2,
-            }]
-          };
-        }
-      }
-    }
-    
-    // Fallback for simple data
-    return {
-      labels: ['Data 1', 'Data 2', 'Data 3'],
-      datasets: [{
-        label: 'Sample Data',
-        data: [10, 20, 30],
-        backgroundColor: colors.slice(0, 3),
-        borderColor: 'rgba(99, 102, 241, 1)',
-        borderWidth: 2,
-      }]
-    };
-  } catch (error) {
-    console.error(' Error converting AI response:', error);
-    // Return fallback data
-    return {
-      labels: ['Sample 1', 'Sample 2', 'Sample 3'],
-      datasets: [{
-        label: 'Sample Data',
-        data: [10, 20, 30],
-        backgroundColor: colors.slice(0, 3),
-        borderColor: 'rgba(99, 102, 241, 1)',
-        borderWidth: 2,
-      }]
-    };
+const samplePrompts = [
+  {
+    type: 'bar' as const,
+    prompt: "Show me the top 10 customers by total purchase amount",
+    icon: "📊"
+  },
+  {
+    type: 'line' as const,
+    prompt: "Display sales trends over the last 12 months",
+    icon: "📈"
+  },
+  {
+    type: 'pie' as const,
+    prompt: "Break down revenue by product category",
+    icon: "🥧"
+  },
+  {
+    type: 'doughnut' as const,
+    prompt: "Show user distribution by region",
+    icon: "🍩"
   }
-};
-
-const convertChartJSToGraphQL = (chartJSData: any): ChartPoint[] => {
-  const points: ChartPoint[] = [];
-  if (chartJSData.datasets?.[0]?.data) {
-    chartJSData.datasets[0].data.forEach((value: number, index: number) => {
-      points.push({ x: index, y: Number(value) || 0 });
-    });
-  }
-  return points;
-};
+];
 
 const convertGraphQLToChartJS = (chart: ChartData) => {
   const labels = chart.data.map((_, index) => `Point ${index + 1}`);
@@ -263,31 +153,6 @@ const getChartOptions = (type: string, title: string) => {
   return baseOptions;
 };
 
-// Sample prompts
-const samplePrompts = [
-  {
-    type: 'bar' as const,
-    prompt: "Show me the top 10 customers by total purchase amount",
-    icon: "📊"
-  },
-  {
-    type: 'line' as const,
-    prompt: "Display sales trends over the last 12 months",
-    icon: "📈"
-  },
-  {
-    type: 'pie' as const,
-    prompt: "Break down revenue by product category",
-    icon: "🥧"
-  },
-  {
-    type: 'doughnut' as const,
-    prompt: "Show user distribution by region",
-    icon: "🍩"
-  }
-];
-
-// Data Source Selector Component
 const DataSourceSelector: React.FC<{
   selectedDataSource: string;
   onDataSourceChange: (id: string) => void;
@@ -317,7 +182,6 @@ const DataSourceSelector: React.FC<{
   </div>
 );
 
-// Static data for testing
 const MOCK_DATA_SOURCES = [
   {
     id: "1",
@@ -358,11 +222,9 @@ const MOCK_CHARTS = [
   }
 ];
 
-// Main Component
 const ChartsDashboard: React.FC = () => {
   const [selectedDataSource, setSelectedDataSource] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [newChart, setNewChart] = useState<NewChartForm>({
     name: '',
     prompt: '',
@@ -371,9 +233,7 @@ const ChartsDashboard: React.FC = () => {
 
   const { user } = useAppSelector(state => state.auth);
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
 
-  // mock data
   const loadingDataSources = false;
   const loadingCharts = false;
   const dataSourceError: Error | null = null;
@@ -394,16 +254,6 @@ const ChartsDashboard: React.FC = () => {
     }
   }, [dataSources, selectedDataSource]);
 
-  const handleLogout = async () => {
-    try {
-      await dispatch(logoutUser()).unwrap();
-      navigate("/login");
-    } catch (error) {
-      console.error("Logout failed:", error);
-      navigate("/login");
-    }
-  };
-
   const handleGenerateChart = async () => {
     if (!newChart.name.trim() || !newChart.prompt.trim() || !selectedDataSource) {
       alert("Please fill in all fields");
@@ -417,7 +267,7 @@ const ChartsDashboard: React.FC = () => {
         return;
       }
 
-      console.log(" Generating chart with AI...");
+      console.log("Generating chart with AI...");
       setGeneratingChart(true);
       
       setTimeout(() => {
@@ -438,39 +288,8 @@ const ChartsDashboard: React.FC = () => {
         alert("Chart created successfully!");
       }, 1500);
 
-      /* 
-      const result = await generateChartMutation({
-        variables: {
-          input: {
-            dataSourceId: selectedDataSource,
-            prompt: newChart.prompt,
-            type: newChart.type
-          }
-        }
-      });
-
-      if (result.data?.generateChart) {
-        const aiResponse = result.data.generateChart;
-        const chartJSData = convertAIToChartJS(aiResponse, newChart.type);
-        const chartPoints = convertChartJSToGraphQL(chartJSData);
-        
-        await createChartMutation({
-          variables: {
-            input: {
-              name: newChart.name,
-              type: newChart.type,
-              data: chartPoints
-            }
-          }
-        });
-
-        await refetchCharts();
-        setIsCreateModalOpen(false);
-      }
-      */
-
     } catch (error: any) {
-      console.error(" Failed to generate chart:", error);
+      console.error("Failed to generate chart:", error);
       alert(`Failed to generate chart: ${error.message}`);
     } finally {
       setGeneratingChart(false);
@@ -480,7 +299,6 @@ const ChartsDashboard: React.FC = () => {
   const handleDeleteChart = async (chartId: string) => {
     if (!confirm("Are you sure you want to delete this chart?")) return;
 
-    // Simulate chart deletion
     const index = charts.findIndex(c => c.id === chartId);
     if (index > -1) {
       charts.splice(index, 1);
@@ -540,7 +358,6 @@ const ChartsDashboard: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  // Error handling
   if (dataSourceError || chartsError) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-indigo-50 to-slate-100">
@@ -563,95 +380,32 @@ const ChartsDashboard: React.FC = () => {
     );
   }
 
+  const headerActions = (
+    <button
+      onClick={() => setIsCreateModalOpen(true)}
+      className="p-2 lg:px-6 lg:py-3 text-white rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-90 transition-all shadow-lg flex items-center gap-2"
+    >
+      <Sparkles size={16} className="lg:w-5 lg:h-5" />
+      <span className="hidden lg:inline">Create with AI</span>
+    </button>
+  );
+
   return (
-    <div className="flex h-screen bg-gradient-to-br from-slate-100 via-indigo-50 to-slate-100">
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:block">
-        <Sidebar />
-      </div>
-
-      {/* Mobile Sidebar */}
-      {isMobileSidebarOpen && (
-        <>
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-            onClick={() => setIsMobileSidebarOpen(false)}
+    <AppLayout
+      title="Charts Dashboard"
+      subtitle="Create beautiful charts with AI"
+      icon={<BarChart3 className="text-white lg:text-white text-slate-700 lg:w-8 lg:h-8" size={24} />}
+      headerActions={headerActions}
+    >
+      <div className="bg-gradient-to-b from-indigo-50/90 to-slate-50/90 min-h-full">
+        <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
+          <DataSourceSelector
+            selectedDataSource={selectedDataSource}
+            onDataSourceChange={setSelectedDataSource}
+            dataSources={dataSources}
+            loading={loadingDataSources}
           />
-          <div className="fixed inset-y-0 left-0 w-72 bg-gradient-to-b from-slate-900 to-slate-800 z-50 lg:hidden">
-            <Sidebar forceOpen={true} onClose={() => setIsMobileSidebarOpen(false)} />
-          </div>
-        </>
-      )}
-      
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile Header */}
-        <div className="lg:hidden bg-white border-b border-slate-200">
-          <div className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsMobileSidebarOpen(true)}
-                className="p-2 hover:bg-slate-100 rounded-lg"
-              >
-                <Menu size={20} />
-              </button>
-              <BarChart3 className="text-indigo-600" size={24} />
-              <h1 className="text-lg font-bold text-slate-800">Charts</h1>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
-            >
-              <LogOut size={18} />
-            </button>
-          </div>
-        </div>
 
-        {/* Desktop Header */}
-        <div className="hidden lg:flex items-center justify-between p-6 bg-white border-b border-slate-200">
-          <div className="flex items-center gap-4">
-            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-3 rounded-xl">
-              <BarChart3 className="text-white" size={32} />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-2">
-                Charts Dashboard
-                <Sparkles className="text-indigo-500" size={24} />
-              </h1>
-              <p className="text-slate-600">Create beautiful charts with AI</p>
-            </div>
-          </div>
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2 px-6 py-3 text-white rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-90 transition-all shadow-lg"
-          >
-            <Sparkles size={20} />
-            Create with AI
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6">
-          {/* Data Source Selector */}
-          <div className="mb-6">
-            <DataSourceSelector
-              selectedDataSource={selectedDataSource}
-              onDataSourceChange={setSelectedDataSource}
-              dataSources={dataSources}
-              loading={loadingDataSources}
-            />
-          </div>
-
-          {/* Mobile Create Button */}
-          <div className="lg:hidden mb-6">
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="w-full flex items-center justify-center gap-3 px-6 py-4 text-white rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600"
-            >
-              <Sparkles size={20} />
-              Create Chart with AI
-            </button>
-          </div>
-
-          {/* Charts Grid */}
           {loadingCharts ? (
             <div className="bg-white rounded-xl shadow-sm p-12 text-center">
               <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
@@ -710,127 +464,126 @@ const ChartsDashboard: React.FC = () => {
             </div>
           )}
         </div>
+      </div>
 
-        {/* Create Chart Modal */}
-        {isCreateModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b bg-gradient-to-r from-indigo-50 to-purple-50">
-                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                  <Sparkles className="text-indigo-600" size={24} />
-                  Create Chart with AI
-                </h2>
-                <p className="text-slate-600 mt-1">Describe what you want to visualize</p>
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b bg-gradient-to-r from-indigo-50 to-purple-50">
+              <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <Sparkles className="text-indigo-600" size={24} />
+                Create Chart with AI
+              </h2>
+              <p className="text-slate-600 mt-1">Describe what you want to visualize</p>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Chart Name *
+                </label>
+                <input
+                  type="text"
+                  value={newChart.name}
+                  onChange={(e) => setNewChart({ ...newChart, name: e.target.value })}
+                  className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="e.g., Monthly Sales Report"
+                />
               </div>
 
-              <div className="p-6 space-y-6">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Chart Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={newChart.name}
-                    onChange={(e) => setNewChart({ ...newChart, name: e.target.value })}
-                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="e.g., Monthly Sales Report"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Chart Type *
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { value: 'bar', label: '📊 Bar Chart' },
-                      { value: 'line', label: '📈 Line Chart' },
-                      { value: 'pie', label: '🥧 Pie Chart' },
-                      { value: 'doughnut', label: '🍩 Doughnut Chart' }
-                    ].map((type) => (
-                      <label key={type.value} className="cursor-pointer">
-                        <input
-                          type="radio"
-                          name="chartType"
-                          value={type.value}
-                          checked={newChart.type === type.value}
-                          onChange={(e) => setNewChart({ ...newChart, type: e.target.value as any })}
-                          className="sr-only"
-                        />
-                        <div className={`p-3 border-2 rounded-lg text-center transition-all ${
-                          newChart.type === type.value 
-                            ? 'border-indigo-500 bg-indigo-50' 
-                            : 'border-slate-200 hover:border-indigo-300'
-                        }`}>
-                          {type.label}
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    What do you want to see? *
-                  </label>
-                  <textarea
-                    value={newChart.prompt}
-                    onChange={(e) => setNewChart({ ...newChart, prompt: e.target.value })}
-                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
-                    placeholder="Describe your visualization..."
-                    rows={3}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    💡 Try these examples:
-                  </label>
-                  <div className="space-y-2">
-                    {samplePrompts.map((sample, index) => (
-                      <button
-                        key={index}
-                        onClick={() => handleSamplePrompt(sample)}
-                        className="w-full text-left p-3 border rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
-                      >
-                        <span className="mr-2">{sample.icon}</span>
-                        <span className="text-sm">{sample.prompt}</span>
-                      </button>
-                    ))}
-                  </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Chart Type *
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { value: 'bar', label: '📊 Bar Chart' },
+                    { value: 'line', label: '📈 Line Chart' },
+                    { value: 'pie', label: '🥧 Pie Chart' },
+                    { value: 'doughnut', label: '🍩 Doughnut Chart' }
+                  ].map((type) => (
+                    <label key={type.value} className="cursor-pointer">
+                      <input
+                        type="radio"
+                        name="chartType"
+                        value={type.value}
+                        checked={newChart.type === type.value}
+                        onChange={(e) => setNewChart({ ...newChart, type: e.target.value as any })}
+                        className="sr-only"
+                      />
+                      <div className={`p-3 border-2 rounded-lg text-center transition-all ${
+                        newChart.type === type.value 
+                          ? 'border-indigo-500 bg-indigo-50' 
+                          : 'border-slate-200 hover:border-indigo-300'
+                      }`}>
+                        {type.label}
+                      </div>
+                    </label>
+                  ))}
                 </div>
               </div>
 
-              <div className="p-6 border-t bg-slate-50 flex gap-3">
-                <button
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="flex-1 px-6 py-3 border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleGenerateChart}
-                  disabled={generatingChart || !newChart.name || !newChart.prompt || !selectedDataSource}
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {generatingChart ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Play size={20} />
-                      Generate Chart
-                    </>
-                  )}
-                </button>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  What do you want to see? *
+                </label>
+                <textarea
+                  value={newChart.prompt}
+                  onChange={(e) => setNewChart({ ...newChart, prompt: e.target.value })}
+                  className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                  placeholder="Describe your visualization..."
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  💡 Try these examples:
+                </label>
+                <div className="space-y-2">
+                  {samplePrompts.map((sample, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleSamplePrompt(sample)}
+                      className="w-full text-left p-3 border rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
+                    >
+                      <span className="mr-2">{sample.icon}</span>
+                      <span className="text-sm">{sample.prompt}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
+
+            <div className="p-6 border-t bg-slate-50 flex gap-3">
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                className="flex-1 px-6 py-3 border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleGenerateChart}
+                disabled={generatingChart || !newChart.name || !newChart.prompt || !selectedDataSource}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {generatingChart ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Play size={20} />
+                    Generate Chart
+                  </>
+                )}
+              </button>
+            </div>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </AppLayout>
   );
 };
 

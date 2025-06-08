@@ -1,21 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Sidebar } from "../../shared/sidebar";
-import { MessageSquare, Send, Loader2, Menu, X } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { useAppDispatch } from "../../hooks/redux-hooks";
-import { logoutUser } from "../../store/auth-slice";
+import { AppLayout } from "../../shared/app-layout";
+import { MessageSquare, Send, Loader2 } from "lucide-react";
 
 export const HomePage = () => {
-	const [messages, setMessages] = useState<{ role: string; content: string }[]>(
-		[]
-	);
+	const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
 	const [input, setInput] = useState("");
 	const [loading, setLoading] = useState(false);
-	const [sidebarOpen, setSidebarOpen] = useState(false);
 	const [progress, setProgress] = useState(0);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
-	const navigate = useNavigate();
-	const dispatch = useAppDispatch();
 
 	const sampleQuestions = [
 		"What is the current stock level of our best-selling products",
@@ -24,20 +16,9 @@ export const HomePage = () => {
 		"Which products should we reorder this week based on sales forecasts",
 	];
 
-	const handleLogout = async () => {
-		try {
-			await dispatch(logoutUser()).unwrap();
-			navigate("/login");
-		} catch (error) {
-			console.error("Logout failed:", error);
-			navigate("/login");
-		}
-	};
-
 	useEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 	}, [messages]);
-
 
 	const simulateProgress = () => {
 		setProgress(0);
@@ -63,7 +44,6 @@ export const HomePage = () => {
 		setInput("");
 		setLoading(true);
 
-
 		const progressInterval = simulateProgress();
 
 		try {
@@ -75,7 +55,6 @@ export const HomePage = () => {
 
 			const data = await res.json();
 			
-	
 			setProgress(100);
 			
 			const botMessage = { role: "bot", content: data.answer };
@@ -102,7 +81,10 @@ export const HomePage = () => {
 	};
 
 	return (
-		<div className="flex h-screen bg-gradient-to-br from-slate-100 via-indigo-50 to-slate-100">
+		<AppLayout
+			title="New Conversation"
+			icon={<MessageSquare className="text-white lg:text-white text-slate-700 lg:w-8 lg:h-8" size={24} />}
+		>
 			{loading && (
 				<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
 					<div className="bg-white rounded-xl p-8 shadow-2xl max-w-md w-full mx-4">
@@ -131,39 +113,8 @@ export const HomePage = () => {
 				</div>
 			)}
 
-			<div className="hidden md:block">
-				<Sidebar />
-			</div>
-
-			<div className={`
-				fixed md:hidden inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out
-				${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-			`}>
-				<Sidebar forceOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-			</div>
-			
-			<div className="flex-1 flex flex-col">
-				<div className="flex items-center justify-between p-4 bg-gradient-to-b from-indigo-50/90 to-slate-50/90">
-					<div className="flex items-center">
-						<button
-							onClick={() => setSidebarOpen(!sidebarOpen)}
-							className="md:hidden mr-2 p-1 rounded-md hover:bg-slate-200 transition-colors"
-						>
-							{sidebarOpen ? <X size={20} /> : <Menu size={20} />}
-						</button>
-						
-						<MessageSquare size={24} className="text-slate-700 mr-2" />
-						<h2 className="font-medium text-slate-700">New Conversation</h2>
-					</div>
-					<button
-						onClick={handleLogout}
-						className="px-4 py-1.5 text-sm text-white rounded-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 hover:opacity-90 transition-all"
-					>
-						Logout
-					</button>
-				</div>
-
-				<div className="flex-1 overflow-y-auto bg-gradient-to-b from-indigo-50/90 to-slate-50/90 pb-24">
+			<div className="h-full flex flex-col bg-gradient-to-b from-indigo-50/90 to-slate-50/90">
+				<div className="flex-1 overflow-y-auto pb-24">
 					<div className="max-w-4xl mx-auto h-full">
 						{messages.length === 0 ? (
 							<div className="h-full flex items-center justify-center">
@@ -236,7 +187,7 @@ export const HomePage = () => {
 					</div>
 				)}
 			</div>
-		</div>
+		</AppLayout>
 	);
 };
 
