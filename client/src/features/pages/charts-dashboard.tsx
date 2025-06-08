@@ -9,8 +9,7 @@ import {
   LogOut,
   AlertTriangle,
   ChevronDown,
-  Sparkles,
-  TrendingUp
+  Sparkles
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../hooks/redux-hooks";
@@ -95,13 +94,13 @@ const colors = [
 // Helper functions
 const convertAIToChartJS = (aiResponse: any, chartType: string) => {
   try {
-    console.log('🔄 Converting AI response:', aiResponse);
+    console.log('Converting AI response:', aiResponse);
     
     // Handle the response structure from your server
     const { promptResult } = aiResponse;
     
     if (!promptResult?.input?.chart) {
-      console.warn('⚠️ Invalid AI response format, using fallback data');
+      console.warn('Invalid AI response format, using fallback data');
       throw new Error('Invalid AI response format');
     }
 
@@ -194,7 +193,7 @@ const convertAIToChartJS = (aiResponse: any, chartType: string) => {
       }]
     };
   } catch (error) {
-    console.error('❌ Error converting AI response:', error);
+    console.error(' Error converting AI response:', error);
     // Return fallback data
     return {
       labels: ['Sample 1', 'Sample 2', 'Sample 3'],
@@ -305,7 +304,7 @@ const DataSourceSelector: React.FC<{
 }> = ({ selectedDataSource, onDataSourceChange, dataSources, loading }) => (
   <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
     <label className="block text-sm font-semibold text-slate-700 mb-3">
-      📊 Select Data Source
+      Select Data Source
     </label>
     <div className="relative">
       <select
@@ -317,7 +316,7 @@ const DataSourceSelector: React.FC<{
         <option value="">Choose your data source...</option>
         {dataSources.map((ds) => (
           <option key={ds.id} value={ds.id}>
-            🗄️ {ds.projectId} ({ds.database})
+             {ds.projectId} ({ds.database})
           </option>
         ))}
       </select>
@@ -385,7 +384,7 @@ const ChartsDashboard: React.FC = () => {
         return;
       }
 
-      console.log("🤖 Generating chart with AI...");
+      console.log(" Generating chart with AI...");
       setGeneratingChart(true);
       
       // Use Apollo Client directly to execute the query
@@ -403,7 +402,7 @@ const ChartsDashboard: React.FC = () => {
       });
 
       const chartResult = JSON.parse(result.data.generateChart);
-      console.log("🎯 AI Response:", chartResult);
+      console.log(" AI Response:", chartResult);
 
       if (chartResult.promptResult) {
         const chartJSData = convertAIToChartJS(chartResult, newChart.type);
@@ -423,12 +422,12 @@ const ChartsDashboard: React.FC = () => {
         await refetch();
         setIsCreateModalOpen(false);
         setNewChart({ name: '', prompt: '', type: 'bar' });
-        alert("✅ Chart created successfully!");
+        alert(" Chart created successfully!");
       } else {
         alert("Failed to generate chart data. Please try a different prompt.");
       }
     } catch (error: any) {
-      console.error("❌ Failed to generate chart:", error);
+      console.error(" Failed to generate chart:", error);
       alert(`Failed to generate chart: ${error.message}`);
     } finally {
       setGeneratingChart(false);
@@ -477,7 +476,7 @@ const ChartsDashboard: React.FC = () => {
     }
   };
 
-  const useSamplePrompt = (prompt: any) => {
+  const handleSamplePrompt = (prompt: any) => {
     setNewChart({
       ...newChart,
       prompt: prompt.prompt,
@@ -749,7 +748,7 @@ const ChartsDashboard: React.FC = () => {
                     {samplePrompts.map((sample, index) => (
                       <button
                         key={index}
-                        onClick={() => useSamplePrompt(sample)}
+                        onClick={() => handleSamplePrompt(sample)}
                         className="w-full text-left p-3 border rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
                       >
                         <span className="mr-2">{sample.icon}</span>
