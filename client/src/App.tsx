@@ -4,6 +4,7 @@ import { store } from "./store/store";
 import Login from "./features/auth/login";
 import Register from "./features/auth/register";
 import { HomePage } from "./features/pages/home-page";
+import ChartsDashboard from "./features/pages/charts-dashboard";
 import { LandingPage } from "./features/pages/landing-page";
 import ProtectedRoute from "./shared/⁠protectedRoutes";
 import DataSources from "./features/pages/data-sources";
@@ -44,6 +45,14 @@ function App() {
                 </ProtectedRoute>
               }
             />
+           <Route
+  path="/charts"
+  element={
+    <ProtectedRoute>
+      <ChartsDashboard />
+    </ProtectedRoute>
+  }
+/>
             {/* Future routes */}
             <Route
               path="/purchase-recommendations"

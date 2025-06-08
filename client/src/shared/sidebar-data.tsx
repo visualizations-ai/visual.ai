@@ -4,7 +4,8 @@ import {
   MessageSquare, 
   Settings, 
   Database,
-  Code
+  Code,
+  BarChart3
 } from "lucide-react";
 import type { IconProps } from "./types/icon-types";
 
@@ -23,6 +24,11 @@ export const sidebarIcons: IconProps[] = [
     label: "sql-editor", 
     icon: <Code size={24} />,
     path: "/sql-editor"
+  },
+  { 
+    label: "charts", 
+    icon: <BarChart3 size={24} />,
+    path: "/charts"
   },
   { 
     label: "purchase-recommendations", 

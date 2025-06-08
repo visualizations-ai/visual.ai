@@ -1,1092 +1,604 @@
-import React, { useState, useEffect } from "react";
-import {Database,Plus,TestTube,CheckCircle,AlertCircle,Eye,EyeOff,Edit3,Trash2,RefreshCw,} from "lucide-react";
+import React, { useState } from "react";
+import {
+  Database,
+  Plus,
+  TestTube,
+  CheckCircle,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Edit3,
+  Trash2,
+  RefreshCw,
+} from "lucide-react";
 import { useMutation, useQuery } from "@apollo/client";
 import { Sidebar } from "../../shared/sidebar";
-import { formatDistanceToNow } from "date-fns";
 import { useAppSelector } from "../../hooks/redux-hooks";
-import {GET_DATA_SOURCES,TEST_CONNECTION,CREATE_DATASOURCE,DELETE_DATASOURCE,UPDATE_DATASOURCE_NAME,} from "../../graphql/data-sources";
-import client from "../../graphql/apollo-client";
+import {
+  GET_DATA_SOURCES,
+  TEST_CONNECTION,
+  CREATE_DATASOURCE,
+  DELETE_DATASOURCE,
+  UPDATE_DATASOURCE_NAME,
+} from "../../graphql/data-sources";
 
 export interface DataSourceForm {
-	projectId: string;
-	host: string;
-	port: string;
-	databaseName: string;
-	username: string;
-	password: string;
+  projectId: string;
+  host: string;
+  port: string;
+  databaseName: string;
+  username: string;
+  password: string;
 }
 
-const DataSources = () => {
-	const [isModalOpen, setIsModalOpen] = useState(false);
-	const [loading, setLoading] = useState(false);
-	const [connectionStatus, setConnectionStatus] = useState<
-		"idle" | "success" | "error"
-	>("idle");
-	const [connectionMessage, setConnectionMessage] = useState("");
-	const [showPassword, setShowPassword] = useState(false);
-	const [dataSources, setDataSources] = useState<any[]>([]);
-	const [editingId, setEditingId] = useState<string | null>(null);
-	const [editingName, setEditingName] = useState("");
-	const [hasUserIdSupport, setHasUserIdSupport] = useState(false);
-	const [refreshing, setRefreshing] = useState(false);
-	const [loadedFromCache, setLoadedFromCache] = useState(false);
-	
-	
-	const [previousUserId, setPreviousUserId] = useState<string | null>(null);
-	
-	
-	const [componentKey, setComponentKey] = useState(0);
-
-	
-	const { user } = useAppSelector(state => state.auth);
-
-
-	const resetComponent = () => {
-		console.log("🔄 Resetting entire component state");
-		setDataSources([]);
-		setLoadedFromCache(false);
-		setHasUserIdSupport(false);
-		setConnectionStatus("idle");
-		setConnectionMessage("");
-		setIsModalOpen(false);
-		setEditingId(null);
-		setEditingName("");
-		setRefreshing(false);
-		setComponentKey(prev => prev + 1); 
-	};
-
-	
-	useEffect(() => {
-		console.log("=== User ID Changed Effect ===");
-		console.log("Previous user:", previousUserId);
-		console.log("Current user:", user?.id);
-		
-		if (user?.id) {
-
-			if (previousUserId !== user.id) {
-				console.log(` User changed: ${previousUserId} → ${user.id}`);
-				
-
-				if (previousUserId) {
-					clearUserLocalStorage(previousUserId);
-				}
-				
-	
-				resetComponent();
-				
-	
-				setPreviousUserId(user.id);
-				
-
-				setTimeout(() => {
-					const cachedData = loadFromLocalStorage(user.id);
-					if (cachedData && cachedData.length > 0) {
-						console.log(" Loading from cache for new user");
-						setDataSources(cachedData);
-						setLoadedFromCache(true);
-					} else {
-						console.log(" Fetching fresh data for new user");
-						fetchDataSourcesManually(true);
-					}
-				}, 100); 
-			}
-		} else {
-	
-			console.log(" No user - clearing everything");
-			resetComponent();
-			setPreviousUserId(null);
-			clearAllDataSourcesCache();
-		}
-	}, [user?.id]); 
-
-	const [formData, setFormData] = useState<DataSourceForm>({
-		projectId: "",
-		host: "",
-		port: "5432",
-		databaseName: "",
-		username: "",
-		password: "",
-	});
-
-	
-	const getLocalStorageKey = (userId: string) => `dataSources_${userId}`;
-	const getCacheMetaKey = (userId: string) => `dataSourcesMeta_${userId}`;
-
-	const saveToLocalStorage = (userId: string, data: any[]) => {
-		try {
-	
-			const filteredData = data.filter(item => 
-				!item.userId || item.userId === userId
-			);
-			
-			if (filteredData.length !== data.length) {
-				console.warn(` Filtered out ${data.length - filteredData.length} items that don't belong to user ${userId}`);
-			}
-			
-			const key = getLocalStorageKey(userId);
-			const metaKey = getCacheMetaKey(userId);
-			
-			localStorage.setItem(key, JSON.stringify(filteredData));
-			localStorage.setItem(metaKey, JSON.stringify({
-				timestamp: Date.now(),
-				count: filteredData.length,
-				hasUserIdSupport,
-				userId: userId 
-			}));
-			
-			console.log(` Saved ${filteredData.length} data sources to localStorage for user ${userId}`);
-		} catch (error) {
-			console.error(" Failed to save to localStorage:", error);
-		}
-	};
-
-	const loadFromLocalStorage = (userId: string) => {
-		try {
-			const key = getLocalStorageKey(userId);
-			const metaKey = getCacheMetaKey(userId);
-			
-			const data = localStorage.getItem(key);
-			const meta = localStorage.getItem(metaKey);
-			
-			if (data && meta) {
-				const parsedData = JSON.parse(data);
-				const parsedMeta = JSON.parse(meta);
-				
-
-				const isExpired = (Date.now() - parsedMeta.timestamp) > (60 * 60 * 1000);
-				
-
-				const isValidForUser = parsedData.every((item: any) => 
-					!item.userId || item.userId === userId
-				);
-				
-				if (!isExpired && isValidForUser) {
-					console.log(` Loaded ${parsedData.length} data sources from localStorage for user ${userId}`);
-					setHasUserIdSupport(parsedMeta.hasUserIdSupport || false);
-					return parsedData;
-				} else {
-					if (isExpired) {
-						console.log(" localStorage cache expired, will fetch from server");
-					} else {
-						console.log(" Cache contains data for different user, will fetch from server");
-					}
-					clearUserLocalStorage(userId);
-				}
-			}
-		} catch (error) {
-			console.error(" Failed to load from localStorage:", error);
-			clearUserLocalStorage(userId);
-		}
-		return null;
-	};
-
-	const clearUserLocalStorage = (userId: string) => {
-		try {
-			const key = getLocalStorageKey(userId);
-			const metaKey = getCacheMetaKey(userId);
-			
-			localStorage.removeItem(key);
-			localStorage.removeItem(metaKey);
-			
-			console.log(` Cleared localStorage for user ${userId}`);
-		} catch (error) {
-			console.error(" Failed to clear localStorage:", error);
-		}
-	};
-
-	const clearAllDataSourcesCache = () => {
-		try {
-
-			const keys = Object.keys(localStorage);
-			keys.forEach(key => {
-				if (key.startsWith('dataSources_') || key.startsWith('dataSourcesMeta_')) {
-					localStorage.removeItem(key);
-				}
-			});
-			console.log(" Cleared all data sources cache");
-		} catch (error) {
-			console.error(" Failed to clear cache:", error);
-		}
-	};
-
-	
-	const {
-		data: dataSourcesData,
-		loading: dataSourcesLoading,
-		refetch,
-		error: dataSourcesError
-	} = useQuery(GET_DATA_SOURCES, {
-		skip: loadedFromCache, 
-		errorPolicy: 'all',
-		notifyOnNetworkStatusChange: true,
-		onCompleted: (data) => {
-			console.log("=== useQuery onCompleted ===");
-			console.log("Received data:", data);
-		},
-		onError: (error) => {
-			console.error("=== useQuery onError ===");
-			console.error("GraphQL Error:", error);
-		}
-	});
-
-	const [testConnectionMutation] = useMutation(TEST_CONNECTION);
-	const [createDatasourceMutation] = useMutation(CREATE_DATASOURCE);
-	const [deleteDatasourceMutation] = useMutation(DELETE_DATASOURCE);
-	const [updateDataSourceMutation] = useMutation(UPDATE_DATASOURCE_NAME);
-
-
-	const fetchDataSourcesManually = async (forceRefresh = false) => {
-		try {
-			console.log("=== Manual Fetch Attempt ===");
-			console.log("Current user ID:", user?.id);
-			console.log("Force refresh:", forceRefresh);
-			
-	
-			if (!forceRefresh && user?.id) {
-				const cachedData = loadFromLocalStorage(user.id);
-				if (cachedData) {
-					setDataSources(cachedData);
-					setLoadedFromCache(true);
-					return;
-				}
-			}
-
-
-			const responseWithUserId = await fetch('http://localhost:3000/api/v1/graphql', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				credentials: 'include',
-				body: JSON.stringify({
-					query: `
-						query GetDataSources {
-							getDataSources {
-								dataSource {
-									id
-									projectId
-									type
-									database
-									userId
-								}
-							}
-						}
-					`
-				}),
-			});
-
-			console.log("Response with userId status:", responseWithUserId.status);
-			
-			if (responseWithUserId.ok) {
-				const result = await responseWithUserId.json();
-				console.log("Result with userId:", result);
-				
-
-				if (result.errors && result.errors.length > 0) {
-					const hasUserIdError = result.errors.some((error: any) => 
-						error.message.includes('userId') || error.message.includes('Cannot query field')
-					);
-					
-					if (hasUserIdError) {
-						console.log("Server doesn't support userId field, falling back...");
-					} else {
-						console.error("Other GraphQL errors:", result.errors);
-					}
-				} else if (result.data?.getDataSources?.dataSource) {
-
-					setHasUserIdSupport(true);
-					const allDataSources = result.data.getDataSources.dataSource;
-					console.log("All data sources with userId:", allDataSources);
-					
-
-					if (user?.id) {
-						const userDataSources = allDataSources.filter(
-							(ds: any) => {
-								console.log(`Comparing userId: ${ds.userId} with current user: ${user.id}`);
-								return ds.userId === user.id;
-							}
-						);
-						console.log("User's data sources:", userDataSources);
-						setDataSources(userDataSources);
-						
-
-						saveToLocalStorage(user.id, userDataSources);
-						return;
-					}
-				}
-			}
-			
-			console.log("Trying without userId (fallback approach)...");
-			const response = await fetch('http://localhost:3000/api/v1/graphql', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				credentials: 'include',
-				body: JSON.stringify({
-					query: `
-						query GetDataSources {
-							getDataSources {
-								dataSource {
-									id
-									projectId
-									type
-									database
-								}
-							}
-						}
-					`
-				}),
-			});
-
-			console.log("Response without userId status:", response.status);
-
-			if (response.ok) {
-				const result = await response.json();
-				console.log("Result without userId:", result);
-				
-				if (result.data?.getDataSources?.dataSource) {
-					const allDataSources = result.data.getDataSources.dataSource;
-					console.log("All data sources (without userId):", allDataSources);
-					
-
-					if (user?.email) {
-						const recentDataSources = allDataSources.slice(-10); 
-						console.log("Showing recent data sources:", recentDataSources);
-						setDataSources(recentDataSources);
-						
-
-						if (user?.id) {
-							saveToLocalStorage(user.id, recentDataSources);
-						}
-					} else {
-						setDataSources(allDataSources);
-					}
-				}
-			} else {
-				const errorText = await response.text();
-				console.error("Manual fetch error:", errorText);
-			}
-			
-		} catch (error) {
-			console.error("Manual fetch failed:", error);
-		}
-	};
-
-	
-	const handleManualRefresh = async () => {
-		setRefreshing(true);
-		console.log("Manual refresh triggered - will fetch from server");
-		try {
-			setLoadedFromCache(false); 
-			await fetchDataSourcesManually(true); 
-		} catch (error) {
-			console.error("Manual refresh failed:", error);
-		} finally {
-			setRefreshing(false);
-		}
-	};
-
-	useEffect(() => {
-		if (user?.id && previousUserId && previousUserId !== user.id) {
-			console.log(`🧹 Clearing Apollo cache for user switch: ${previousUserId} → ${user.id}`);
-			client.clearStore().catch(console.error);
-		}
-	}, [user?.id, previousUserId]);
-
-
-	useEffect(() => {
-		if (user?.id && dataSources.length > 0) {
-			console.log(" Validating data ownership for user:", user.id);
-			
-			let hasInvalidData = false;
-			
-			dataSources.forEach((ds, index) => {
-				if (ds.userId && ds.userId !== user.id) {
-					console.warn(` Item ${index} belongs to user ${ds.userId}, not ${user.id}:`, ds);
-					hasInvalidData = true;
-				}
-			});
-			
-			if (hasInvalidData) {
-				console.error(" CONTAMINATED DATA DETECTED - FORCE REFRESH");
-				resetComponent();
-				setTimeout(() => {
-					fetchDataSourcesManually(true);
-				}, 100);
-			}
-		}
-	}, [dataSources, user?.id]); 
-
-
-	useEffect(() => {
-		
-		console.log("=== GraphQL Data Debug ===");
-		console.log("dataSourcesData:", dataSourcesData);
-		console.log("dataSourcesLoading:", dataSourcesLoading);
-		console.log("dataSourcesError:", dataSourcesError);
-		
-
-		if (dataSourcesError && user?.id) {
-			console.log("GraphQL error detected, trying manual fetch...");
-			fetchDataSourcesManually();
-			return;
-		}
-		
-
-		if (dataSourcesData?.getDataSources?.dataSource) {
-			const allDataSources = dataSourcesData.getDataSources.dataSource;
-			console.log("All data sources from GraphQL:", allDataSources);
-			
-			if (hasUserIdSupport && user?.id) {
-				const userDataSources = allDataSources.filter(
-					(ds: any) => ds.userId === user.id
-				);
-				setDataSources(userDataSources);
-				saveToLocalStorage(user.id, userDataSources);
-			} else {
-				const recentDataSources = allDataSources.slice(-10);
-				setDataSources(recentDataSources);
-				if (user?.id) {
-					saveToLocalStorage(user.id, recentDataSources);
-				}
-			}
-		}
-	}, [dataSourcesData, dataSourcesLoading, dataSourcesError, hasUserIdSupport, loadedFromCache]);
-
-	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const target = e.target;
-		const { name, value } = target;
-		setFormData((prev) => ({
-			...prev,
-			[name]: value,
-		}));
-		if (connectionStatus === "success") {
-			setConnectionStatus("idle");
-			setConnectionMessage("");
-		}
-	};
-
-	const testConnection = async () => {
-		if (
-			!formData.host ||
-			!formData.username ||
-			!formData.password ||
-			!formData.databaseName
-		) {
-			setConnectionStatus("error");
-			setConnectionMessage("Please fill in all required connection fields");
-			return;
-		}
-
-		setLoading(true);
-		setConnectionStatus("idle");
-
-		try {
-			const result = await testConnectionMutation({
-				variables: {
-					datasource: {
-						databaseUrl: formData.host,
-						port: formData.port,
-						databaseName: formData.databaseName,
-						username: formData.username,
-						password: formData.password,
-					},
-				},
-			});
-
-			setConnectionStatus("success");
-			setConnectionMessage(result.data.checkPostgresqlConnection.message);
-		} catch (error: any) {
-			setConnectionStatus("error");
-			let errorMessage = "Connection failed";
-			if (error.graphQLErrors && error.graphQLErrors.length > 0) {
-				errorMessage = error.graphQLErrors[0].message;
-			} else if (error.networkError) {
-				errorMessage = `Network error: ${error.networkError.message}`;
-			} else if (error.message) {
-				errorMessage = error.message;
-			}
-			setConnectionMessage(errorMessage);
-		} finally {
-			setLoading(false);
-		}
-	};
-
-	const handleSubmit = async () => {
-		if (!formData.projectId.trim()) {
-			setConnectionStatus("error");
-			setConnectionMessage("Project ID is required");
-			return;
-		}
-
-		setLoading(true);
-
-		try {
-			console.log("Creating data source for user:", user?.id);
-			
-			const response = await fetch('http://localhost:3000/api/v1/graphql', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				credentials: 'include',
-				body: JSON.stringify({
-					query: `
-						mutation CreatePostgresqlDataSource($source: DataSourceInfo!) {
-							createPostgresqlDataSource(source: $source) {
-								dataSource {
-									id
-									projectId
-									type
-									database
-									${hasUserIdSupport ? 'userId' : ''}
-								}
-							}
-						}
-					`,
-					variables: {
-						source: {
-							projectId: formData.projectId,
-							databaseUrl: formData.host,
-							port: formData.port,
-							databaseName: formData.databaseName,
-							username: formData.username,
-							password: formData.password,
-						}
-					}
-				}),
-			});
-
-			console.log("Create response status:", response.status);
-
-			if (response.ok) {
-				const result = await response.json();
-				console.log("Create result:", result);
-
-	
-				if (result.data?.createPostgresqlDataSource?.dataSource) {
-					const newDataSource = result.data.createPostgresqlDataSource.dataSource;
-					
-	
-					const updatedDataSources = [...dataSources, newDataSource];
-					setDataSources(updatedDataSources);
-					
-
-					if (user?.id) {
-						saveToLocalStorage(user.id, updatedDataSources);
-					}
-					
-					closeModal();
-					alert("Data source created successfully!");
-				} else {
-
-					closeModal();
-					alert("Data source created successfully!");
-					
-					if (user?.id) {
-						clearUserLocalStorage(user.id);
-					}
-					setLoadedFromCache(false);
-					await fetchDataSourcesManually(true);
-				}
-			} else {
-				const errorText = await response.text();
-				throw new Error(`Server error: ${response.status} - ${errorText}`);
-			}
-
-		} catch (error: any) {
-			console.error("=== Create Error ===");
-			console.error("Error:", error);
-			
-
-			if (error.message.includes('400') || error.message.includes('Bad Request')) {
-				console.log("Ignoring 400 error, data source was probably created");
-				closeModal();
-				alert("Data source created successfully!");
-				
-				if (user?.id) {
-					clearUserLocalStorage(user.id);
-				}
-				setLoadedFromCache(false);
-				await fetchDataSourcesManually(true);
-			} else {
-				setConnectionMessage(error.message || "Failed to create data source");
-				setConnectionStatus("error");
-			}
-		} finally {
-			setLoading(false);
-		}
-	};
-
-	const handleDelete = async (datasourceId: string, projectId: string) => {
-		if (
-			!confirm(`Are you sure you want to delete data source "${projectId}"?`)
-		) {
-			return;
-		}
-
-		try {
-			await deleteDatasourceMutation({
-				variables: { 
-					datasourceId
-				},
-			});
-			const updatedDataSources = dataSources.filter((ds) => ds.id !== datasourceId);
-			setDataSources(updatedDataSources);
-		
-			if (user?.id) {
-				saveToLocalStorage(user.id, updatedDataSources);
-			}
-			
-			alert("Data source deleted successfully!");
-
-		} catch (error: any) {
-			alert("Failed to delete data source: " + error.message);
-		}
-	};
-
-	const openModal = () => {
-		setIsModalOpen(true);
-		resetForm();
-	};
-
-	const closeModal = () => {
-		setIsModalOpen(false);
-		resetForm();
-	};
-
-	const resetForm = () => {
-		setFormData({
-			projectId: "",
-			host: "",
-			port: "5432",
-			databaseName: "",
-			username: "",
-			password: "",
-		});
-		setConnectionStatus("idle");
-		setConnectionMessage("");
-		setShowPassword(false);
-		setLoading(false);
-	};
-
-	const handleEditStart = (dataSource: any) => {
-		setEditingId(dataSource.id);
-		setEditingName(dataSource.projectId);
-	};
-
-	const handleEditSave = async (id: string) => {
-		if (!editingName.trim()) {
-			alert("Name cannot be empty");
-			return;
-		}
-
-		try {
-			const { data } = await updateDataSourceMutation({
-				variables: {
-					datasourceId: id,
-					newName: editingName.trim(),
-				},
-			});
-
-			if (data?.updateDataSourceName?.success) {
-				const updatedDataSources = dataSources.map((source) =>
-					source.id === id
-						? { ...source, projectId: editingName.trim() }
-						: source
-				);
-				
-				setDataSources(updatedDataSources);
-				
-				if (user?.id) {
-					saveToLocalStorage(user.id, updatedDataSources);
-				}
-				
-				setEditingId(null);
-				setEditingName("");
-			} else {
-				throw new Error("Failed to update name");
-			}
-		} catch (error: any) {
-			alert(`Failed to update name: ${error.message}`);
-			console.error("Update error:", error);
-		}
-	};
-
-	const handleEditCancel = () => {
-		setEditingId(null);
-		setEditingName("");
-	};
-
-	const inputClass =
-		"w-full p-3 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder-slate-400";
-
-	return (
-		<div key={componentKey} className="flex h-screen bg-gradient-to-br from-slate-100 via-indigo-50 to-slate-100">
-			<Sidebar />
-			<div className="flex-1 flex flex-col">
-				<div className="flex-1 overflow-y-auto bg-gradient-to-b from-indigo-50/90 to-slate-50/90 pb-24">
-					<div className="max-w-6xl mx-auto h-full p-6">
-						<div className="flex items-center justify-between mb-8">
-							<div className="flex items-center gap-3">
-								<Database className="text-slate-700" size={28} />
-								<div>
-									<h1 className="text-2xl font-semibold text-slate-800">
-										Data Sources
-									</h1>
-									<p className="text-sm text-slate-600">
-										{hasUserIdSupport 
-											? "Your personal data connections" 
-											: "Recent data connections"
-										}
-										{loadedFromCache && " (from cache)"}
-										{user?.id && (
-											<span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-												User: {user.id.slice(-8)}
-											</span>
-										)}
-									</p>
-								</div>
-							</div>
-							<div className="flex items-center gap-3">
-								<button
-									onClick={handleManualRefresh}
-									disabled={refreshing}
-									className="flex items-center gap-2 px-3 py-2 text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
-									title="Refresh data sources from server"
-								>
-									<RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-									{refreshing ? "Refreshing..." : "Refresh"}
-								</button>
-								<button
-									onClick={openModal}
-									className="flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900"
-								>
-									<Plus size={20} />
-									Add Data Source
-								</button>
-							</div>
-						</div>
-
-						{(dataSourcesLoading && !loadedFromCache) ? (
-							<div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
-								<div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-								<p className="text-slate-500">Loading data sources...</p>
-							</div>
-						) : dataSources.length === 0 ? (
-							<div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
-								<Database className="mx-auto text-slate-400 mb-4" size={48} />
-								<h3 className="text-lg font-medium text-slate-700 mb-2">
-									No data sources yet
-								</h3>
-								<p className="text-slate-500 mb-6">
-									{hasUserIdSupport 
-										? "Create your first personal data source to get started"
-										: "Create your first data source to get started"
-									}
-								</p>
-								<button
-									onClick={openModal}
-									className="px-6 py-2 text-white rounded-lg hover:opacity-90 transition-colors bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900"
-								>
-									Add Your First Data Source
-								</button>
-							</div>
-						) : (
-							<div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-								<div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-									<h2 className="text-lg font-semibold text-gray-900">
-										{hasUserIdSupport ? "Your " : "Recent "}Data Sources ({dataSources.length})
-									</h2>
-									<p className="text-sm text-gray-600 mt-1">
-										{hasUserIdSupport 
-											? "Showing only your personal data connections"
-											: "Showing recent data connections"
-										}
-										{loadedFromCache && " • Loaded from cache"}
-									</p>
-								</div>
-
-								<div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
-									<div className="grid grid-cols-12 gap-4 text-sm font-medium text-gray-600">
-										<div className="col-span-3">Data Source</div>
-										<div className="col-span-2">Type</div>
-										<div className="col-span-2">Database</div>
-										<div className="col-span-2">Status</div>
-										<div className="col-span-2">Created</div>
-										<div className="col-span-1">Actions</div>
-									</div>
-								</div>
-
-								<div className="divide-y divide-gray-100">
-									{dataSources.map((dataSource: any) => (
-										<div
-											key={dataSource.id}
-											className="px-6 py-4 hover:bg-gray-50 transition-colors"
-										>
-											<div className="grid grid-cols-12 gap-4">
-												<div className="col-span-3 flex items-center gap-3">
-													<div className="bg-indigo-100 p-2 rounded-lg">
-														<Database className="w-4 h-4 text-indigo-600" />
-													</div>
-													<div>
-														{editingId === dataSource.id ? (
-															<div className="flex items-center gap-2">
-																<input
-																	type="text"
-																	value={editingName}
-																	onChange={(e) =>
-																		setEditingName(e.target.value)
-																	}
-																	className="px-2 py-1 text-sm border border-indigo-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-																	autoFocus
-																/>
-																<button
-																	onClick={() => handleEditSave(dataSource.id)}
-																	className="text-green-600 hover:text-green-700"
-																>
-																	<CheckCircle className="w-4 h-4" />
-																</button>
-																<button
-																	onClick={handleEditCancel}
-																	className="text-red-600 hover:text-red-700"
-																>
-																	×
-																</button>
-															</div>
-														) : (
-															<div className="font-semibold text-gray-900">
-																{dataSource.projectId}
-															</div>
-														)}
-														<div className="text-sm text-gray-500">
-															Recently created
-														</div>
-													</div>
-												</div>
-
-												<div className="col-span-2">
-													<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-														{dataSource.type}
-													</span>
-												</div>
-
-												<div className="col-span-2">
-													<span className="text-sm text-gray-900">
-														{dataSource.database}
-													</span>
-												</div>
-
-												<div className="col-span-2">
-													<div className="flex items-center gap-2">
-														<CheckCircle className="w-4 h-4 text-green-500" />
-														<span className="text-sm font-medium text-green-600">
-															Connected
-														</span>
-													</div>
-												</div>
-
-												<div className="col-span-2">
-													<span className="text-sm text-gray-500">
-														Recently
-													</span>
-												</div>
-
-												<div className="col-span-1 flex items-center gap-1">
-													<button
-														onClick={() => handleEditStart(dataSource)}
-														className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-														title="Edit name"
-													>
-														<Edit3 className="w-4 h-4" />
-													</button>
-													<button
-														onClick={() =>
-															handleDelete(dataSource.id, dataSource.projectId)
-														}
-														className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-														title="Delete data source"
-													>
-														<Trash2 className="w-4 h-4" />
-													</button>
-												</div>
-											</div>
-										</div>
-									))}
-								</div>
-							</div>
-						)}
-					</div>
-				</div>
-			</div>
-
-			{isModalOpen && (
-				<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-					<div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700">
-						<div className="p-6 border-b border-slate-700">
-							<h2 className="text-xl font-semibold text-white mb-2">
-								Add New Data Source
-							</h2>
-							<p className="text-slate-400 text-sm">
-								Connect to your PostgreSQL database
-							</p>
-						</div>
-
-						<div className="p-6 space-y-4">
-							<div>
-								<label className="block text-sm font-medium text-slate-300 mb-2">
-									Project ID *
-								</label>
-								<input
-									type="text"
-									name="projectId"
-									value={formData.projectId}
-									onChange={handleInputChange}
-									className={inputClass}
-									placeholder="Enter project identifier"
-									required
-								/>
-							</div>
-
-							<div>
-								<label className="block text-sm font-medium text-slate-300 mb-2">
-									Host *
-								</label>
-								<input
-									type="text"
-									name="host"
-									value={formData.host}
-									onChange={handleInputChange}
-									className={inputClass}
-									placeholder="localhost or IP address"
-									required
-								/>
-							</div>
-
-							<div>
-								<label className="block text-sm font-medium text-slate-300 mb-2">
-									Port
-								</label>
-								<input
-									type="text"
-									name="port"
-									value={formData.port}
-									onChange={handleInputChange}
-									className={inputClass}
-									placeholder="5432"
-								/>
-							</div>
-
-							<div>
-								<label className="block text-sm font-medium text-slate-300 mb-2">
-									Database Name *
-								</label>
-								<input
-									type="text"
-									name="databaseName"
-									value={formData.databaseName}
-									onChange={handleInputChange}
-									className={inputClass}
-									placeholder="Enter database name"
-									required
-								/>
-							</div>
-
-							<div>
-								<label className="block text-sm font-medium text-slate-300 mb-2">
-									Username *
-								</label>
-								<input
-									type="text"
-									name="username"
-									value={formData.username}
-									onChange={handleInputChange}
-									className={inputClass}
-									placeholder="Database username"
-									required
-								/>
-							</div>
-
-							<div>
-								<label className="block text-sm font-medium text-slate-300 mb-2">
-									Password *
-								</label>
-								<div className="relative">
-									<input
-										type={showPassword ? "text" : "password"}
-										name="password"
-										value={formData.password}
-										onChange={handleInputChange}
-										className={inputClass}
-										placeholder="Database password"
-										required
-									/>
-									<button
-										type="button"
-										onClick={() => setShowPassword(!showPassword)}
-										className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-300"
-									>
-										{showPassword ? (
-											<EyeOff className="w-5 h-5" />
-										) : (
-											<Eye className="w-5 h-5" />
-										)}
-									</button>
-								</div>
-							</div>
-
-							{connectionMessage && (
-								<div
-									className={`p-3 rounded-lg border ${
-										connectionStatus === "success"
-											? "bg-green-900/50 border-green-700 text-green-300"
-											: "bg-red-900/50 border-red-700 text-red-300"
-									}`}
-								>
-									<div className="flex items-center gap-2">
-										{connectionStatus === "success" ? (
-											<CheckCircle className="w-4 h-4" />
-										) : (
-											<AlertCircle className="w-4 h-4" />
-										)}
-										<span className="text-sm">{connectionMessage}</span>
-									</div>
-								</div>
-							)}
-						</div>
-
-						<div className="p-6 border-t border-slate-700 flex gap-3">
-							<button
-								onClick={testConnection}
-								disabled={loading}
-								className="flex items-center gap-2 px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50"
-							>
-								<TestTube className="w-4 h-4" />
-								{loading ? "Testing..." : "Test Connection"}
-							</button>
-
-							<div className="flex-1 flex gap-2">
-								<button
-									onClick={closeModal}
-									className="flex-1 px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 transition-colors"
-								>
-									Cancel
-								</button>
-								<button
-									onClick={handleSubmit}
-									disabled={loading || connectionStatus !== "success"}
-									className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-								>
-									{loading ? "Creating..." : "Create"}
-								</button>
-							</div>
-						</div>
-					</div>
-				</div>
-			)}
-		</div>
-	);
+const ImprovedDataSources = () => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<
+    "idle" | "success" | "error"
+  >("idle");
+  const [connectionMessage, setConnectionMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+
+  const { user } = useAppSelector((state) => state.auth);
+
+  const [formData, setFormData] = useState<DataSourceForm>({
+    projectId: "",
+    host: "",
+    port: "5432",
+    databaseName: "",
+    username: "",
+    password: "",
+  });
+
+
+  const {
+    data: dataSourcesData,
+    loading: dataSourcesLoading,
+    refetch: refetchDataSources,
+    error: dataSourcesError,
+  } = useQuery(GET_DATA_SOURCES, {
+    errorPolicy: "all",
+    fetchPolicy: "cache-and-network",
+  });
+
+  const [testConnectionMutation, { loading: testingConnection }] = useMutation(TEST_CONNECTION);
+  const [createDatasourceMutation, { loading: creatingDatasource }] = useMutation(CREATE_DATASOURCE);
+  const [deleteDatasourceMutation] = useMutation(DELETE_DATASOURCE);
+  const [updateDataSourceMutation] = useMutation(UPDATE_DATASOURCE_NAME);
+
+  const dataSources = dataSourcesData?.getDataSources?.dataSource || [];
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    
+
+    if (connectionStatus === "success") {
+      setConnectionStatus("idle");
+      setConnectionMessage("");
+    }
+  };
+
+  const testConnection = async () => {
+    if (!formData.host || !formData.username || !formData.password || !formData.databaseName) {
+      setConnectionStatus("error");
+      setConnectionMessage("Please fill in all required connection fields");
+      return;
+    }
+
+    try {
+      const result = await testConnectionMutation({
+        variables: {
+          datasource: {
+            databaseUrl: formData.host,
+            port: formData.port,
+            databaseName: formData.databaseName,
+            username: formData.username,
+            password: formData.password,
+          },
+        },
+      });
+
+      setConnectionStatus("success");
+      setConnectionMessage(result.data.checkPostgresqlConnection.message);
+    } catch (error: any) {
+      setConnectionStatus("error");
+      let errorMessage = "Connection failed";
+      if (error.graphQLErrors && error.graphQLErrors.length > 0) {
+        errorMessage = error.graphQLErrors[0].message;
+      } else if (error.networkError) {
+        errorMessage = `Network error: ${error.networkError.message}`;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      setConnectionMessage(errorMessage);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.projectId.trim()) {
+      setConnectionStatus("error");
+      setConnectionMessage("Project ID is required");
+      return;
+    }
+
+    if (connectionStatus !== "success") {
+      setConnectionStatus("error");
+      setConnectionMessage("Please test the connection first");
+      return;
+    }
+
+    try {
+      await createDatasourceMutation({
+        variables: {
+          source: {
+            projectId: formData.projectId,
+            databaseUrl: formData.host,
+            port: formData.port,
+            databaseName: formData.databaseName,
+            username: formData.username,
+            password: formData.password,
+          },
+        },
+        refetchQueries: [{ query: GET_DATA_SOURCES }],
+      });
+
+      closeModal();
+      alert("Data source created successfully!");
+    } catch (error: any) {
+      setConnectionMessage(error.message || "Failed to create data source");
+      setConnectionStatus("error");
+    }
+  };
+
+  const handleDelete = async (datasourceId: string, projectId: string) => {
+    if (!confirm(`Are you sure you want to delete data source "${projectId}"?`)) {
+      return;
+    }
+
+    try {
+      await deleteDatasourceMutation({
+        variables: { datasourceId },
+        refetchQueries: [{ query: GET_DATA_SOURCES }],
+      });
+      alert("Data source deleted successfully!");
+    } catch (error: any) {
+      alert("Failed to delete data source: " + error.message);
+    }
+  };
+
+  const handleEditStart = (dataSource: any) => {
+    setEditingId(dataSource.id);
+    setEditingName(dataSource.projectId);
+  };
+
+  const handleEditSave = async (id: string) => {
+    if (!editingName.trim()) {
+      alert("Name cannot be empty");
+      return;
+    }
+
+    try {
+      const { data } = await updateDataSourceMutation({
+        variables: {
+          datasourceId: id,
+          newName: editingName.trim(),
+        },
+        refetchQueries: [{ query: GET_DATA_SOURCES }],
+      });
+
+      if (data?.updateDataSourceName?.success) {
+        setEditingId(null);
+        setEditingName("");
+      } else {
+        throw new Error("Failed to update name");
+      }
+    } catch (error: any) {
+      alert(`Failed to update name: ${error.message}`);
+      console.error("Update error:", error);
+    }
+  };
+
+  const handleEditCancel = () => {
+    setEditingId(null);
+    setEditingName("");
+  };
+
+  const openModal = () => {
+    setIsModalOpen(true);
+    resetForm();
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    resetForm();
+  };
+
+  const resetForm = () => {
+    setFormData({
+      projectId: "",
+      host: "",
+      port: "5432",
+      databaseName: "",
+      username: "",
+      password: "",
+    });
+    setConnectionStatus("idle");
+    setConnectionMessage("");
+    setShowPassword(false);
+  };
+
+  const handleRefresh = () => {
+    refetchDataSources();
+  };
+
+  const inputClass =
+    "w-full p-3 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder-slate-400";
+
+  return (
+    <div className="flex h-screen bg-gradient-to-br from-slate-100 via-indigo-50 to-slate-100">
+      <Sidebar />
+      <div className="flex-1 flex flex-col">
+        <div className="flex-1 overflow-y-auto bg-gradient-to-b from-indigo-50/90 to-slate-50/90 pb-24">
+          <div className="max-w-6xl mx-auto h-full p-6">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <Database className="text-slate-700" size={28} />
+                <div>
+                  <h1 className="text-2xl font-semibold text-slate-800">
+                    Data Sources
+                  </h1>
+                  <p className="text-sm text-slate-600">
+                    Manage your database connections
+                    {user?.id && (
+                      <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                        User: {user.id.slice(-8)}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleRefresh}
+                  disabled={dataSourcesLoading}
+                  className="flex items-center gap-2 px-3 py-2 text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+                  title="Refresh data sources"
+                >
+                  <RefreshCw size={16} className={dataSourcesLoading ? "animate-spin" : ""} />
+                  {dataSourcesLoading ? "Refreshing..." : "Refresh"}
+                </button>
+                <button
+                  onClick={openModal}
+                  className="flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900"
+                >
+                  <Plus size={20} />
+                  Add Data Source
+                </button>
+              </div>
+            </div>
+
+            {dataSourcesError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                  <span className="text-red-800 font-medium">Error loading data sources</span>
+                </div>
+                <p className="text-red-700 text-sm mt-1">{dataSourcesError.message}</p>
+              </div>
+            )}
+
+            {dataSourcesLoading ? (
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
+                <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-slate-500">Loading data sources...</p>
+              </div>
+            ) : dataSources.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
+                <Database className="mx-auto text-slate-400 mb-4" size={48} />
+                <h3 className="text-lg font-medium text-slate-700 mb-2">
+                  No data sources yet
+                </h3>
+                <p className="text-slate-500 mb-6">
+                  Create your first data source to get started
+                </p>
+                <button
+                  onClick={openModal}
+                  className="px-6 py-2 text-white rounded-lg hover:opacity-90 transition-colors bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900"
+                >
+                  Add Your First Data Source
+                </button>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Data Sources ({dataSources.length})
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Your database connections
+                  </p>
+                </div>
+
+                <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
+                  <div className="grid grid-cols-12 gap-4 text-sm font-medium text-gray-600">
+                    <div className="col-span-3">Data Source</div>
+                    <div className="col-span-2">Type</div>
+                    <div className="col-span-2">Database</div>
+                    <div className="col-span-2">Status</div>
+                    <div className="col-span-2">Created</div>
+                    <div className="col-span-1">Actions</div>
+                  </div>
+                </div>
+
+                <div className="divide-y divide-gray-100">
+                  {dataSources.map((dataSource: any) => (
+                    <div
+                      key={dataSource.id}
+                      className="px-6 py-4 hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="grid grid-cols-12 gap-4">
+                        <div className="col-span-3 flex items-center gap-3">
+                          <div className="bg-indigo-100 p-2 rounded-lg">
+                            <Database className="w-4 h-4 text-indigo-600" />
+                          </div>
+                          <div>
+                            {editingId === dataSource.id ? (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={editingName}
+                                  onChange={(e) => setEditingName(e.target.value)}
+                                  className="px-2 py-1 text-sm border border-indigo-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={() => handleEditSave(dataSource.id)}
+                                  className="text-green-600 hover:text-green-700"
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={handleEditCancel}
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="font-semibold text-gray-900">
+                                {dataSource.projectId}
+                              </div>
+                            )}
+                            <div className="text-sm text-gray-500">
+                              Recently created
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="col-span-2">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                            {dataSource.type}
+                          </span>
+                        </div>
+
+                        <div className="col-span-2">
+                          <span className="text-sm text-gray-900">
+                            {dataSource.database}
+                          </span>
+                        </div>
+
+                        <div className="col-span-2">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4 text-green-500" />
+                            <span className="text-sm font-medium text-green-600">
+                              Connected
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="col-span-2">
+                          <span className="text-sm text-gray-500">Recently</span>
+                        </div>
+
+                        <div className="col-span-1 flex items-center gap-1">
+                          <button
+                            onClick={() => handleEditStart(dataSource)}
+                            className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                            title="Edit name"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleDelete(dataSource.id, dataSource.projectId)
+                            }
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete data source"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700">
+            <div className="p-6 border-b border-slate-700">
+              <h2 className="text-xl font-semibold text-white mb-2">
+                Add New Data Source
+              </h2>
+              <p className="text-slate-400 text-sm">
+                Connect to your PostgreSQL database
+              </p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Project ID *
+                </label>
+                <input
+                  type="text"
+                  name="projectId"
+                  value={formData.projectId}
+                  onChange={handleInputChange}
+                  className={inputClass}
+                  placeholder="Enter project identifier"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Host *
+                </label>
+                <input
+                  type="text"
+                  name="host"
+                  value={formData.host}
+                  onChange={handleInputChange}
+                  className={inputClass}
+                  placeholder="localhost or IP address"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Port
+                </label>
+                <input
+                  type="text"
+                  name="port"
+                  value={formData.port}
+                  onChange={handleInputChange}
+                  className={inputClass}
+                  placeholder="5432"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Database Name *
+                </label>
+                <input
+                  type="text"
+                  name="databaseName"
+                  value={formData.databaseName}
+                  onChange={handleInputChange}
+                  className={inputClass}
+                  placeholder="Enter database name"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Username *
+                </label>
+                <input
+                  type="text"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleInputChange}
+                  className={inputClass}
+                  placeholder="Database username"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Password *
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    className={inputClass}
+                    placeholder="Database password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-300"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {connectionMessage && (
+                <div
+                  className={`p-3 rounded-lg border ${
+                    connectionStatus === "success"
+                      ? "bg-green-900/50 border-green-700 text-green-300"
+                      : "bg-red-900/50 border-red-700 text-red-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {connectionStatus === "success" ? (
+                      <CheckCircle className="w-4 h-4" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4" />
+                    )}
+                    <span className="text-sm">{connectionMessage}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-slate-700 flex gap-3">
+              <button
+                onClick={testConnection}
+                disabled={testingConnection}
+                className="flex items-center gap-2 px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50"
+              >
+                <TestTube className="w-4 h-4" />
+                {testingConnection ? "Testing..." : "Test Connection"}
+              </button>
+
+              <div className="flex-1 flex gap-2">
+                <button
+                  onClick={closeModal}
+                  className="flex-1 px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={creatingDatasource || connectionStatus !== "success"}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {creatingDatasource ? "Creating..." : "Create"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
-export default DataSources;
+export default ImprovedDataSources;
