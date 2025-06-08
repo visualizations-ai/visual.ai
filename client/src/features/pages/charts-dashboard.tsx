@@ -14,14 +14,6 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../hooks/redux-hooks";
 import { logoutUser } from "../../store/auth-slice";
-import { useQuery, useMutation, useApolloClient } from "@apollo/client";
-import { GET_DATA_SOURCES } from "../../graphql/data-sources";
-import { 
-  GENERATE_CHART_QUERY,
-  GET_CHARTS_QUERY, 
-  CREATE_CHART_MUTATION, 
-  DELETE_CHART_MUTATION 
-} from "../../graphql/charts";
 
 // Chart.js imports with proper registration
 import {
@@ -325,6 +317,47 @@ const DataSourceSelector: React.FC<{
   </div>
 );
 
+// Static data for testing
+const MOCK_DATA_SOURCES = [
+  {
+    id: "1",
+    projectId: "Project 1",
+    type: "postgresql",
+    database: "Sales DB"
+  },
+  {
+    id: "2",
+    projectId: "Project 2",
+    type: "postgresql",
+    database: "Users DB"
+  }
+];
+
+const MOCK_CHARTS = [
+  {
+    id: "1",
+    name: "Monthly Sales",
+    type: "bar",
+    data: [
+      { x: 0, y: 100 },
+      { x: 1, y: 150 },
+      { x: 2, y: 200 }
+    ],
+    userId: "1"
+  },
+  {
+    id: "2",
+    name: "User Growth",
+    type: "line",
+    data: [
+      { x: 0, y: 50 },
+      { x: 1, y: 75 },
+      { x: 2, y: 90 }
+    ],
+    userId: "1"
+  }
+];
+
 // Main Component
 const ChartsDashboard: React.FC = () => {
   const [selectedDataSource, setSelectedDataSource] = useState("");
@@ -339,21 +372,21 @@ const ChartsDashboard: React.FC = () => {
   const { user } = useAppSelector(state => state.auth);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const apolloClient = useApolloClient();
 
-  // GraphQL hooks - Fixed to use the correct hook types
-  const { data: dataSourcesData, loading: loadingDataSources, error: dataSourceError } = useQuery(GET_DATA_SOURCES);
-  const { data: chartsData, loading: loadingCharts, error: chartsError, refetch } = useQuery(GET_CHARTS_QUERY);
-  
-  // Use Apollo Client directly for the chart generation query
-  const [createChart] = useMutation(CREATE_CHART_MUTATION);
-  const [deleteChart] = useMutation(DELETE_CHART_MUTATION);
-  
-  // State for loading chart generation
+  // mock data
+  const loadingDataSources = false;
+  const loadingCharts = false;
+  const dataSourceError: Error | null = null;
+  const chartsError: Error | null = null;
+  const dataSources = MOCK_DATA_SOURCES;
+  const charts = MOCK_CHARTS;
   const [generatingChart, setGeneratingChart] = useState(false);
 
-  const dataSources: DataSource[] = dataSourcesData?.getDataSources?.dataSource || [];
-  const charts: ChartData[] = chartsData?.getCharts || [];
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     if (dataSources.length > 0 && !selectedDataSource) {
@@ -387,45 +420,55 @@ const ChartsDashboard: React.FC = () => {
       console.log(" Generating chart with AI...");
       setGeneratingChart(true);
       
-      // Use Apollo Client directly to execute the query
-      const result = await apolloClient.query({
-        query: GENERATE_CHART_QUERY,
+      setTimeout(() => {
+        const newMockChart = {
+          id: String(charts.length + 1),
+          name: newChart.name,
+          type: newChart.type,
+          data: [
+            { x: 0, y: Math.random() * 100 },
+            { x: 1, y: Math.random() * 100 },
+            { x: 2, y: Math.random() * 100 }
+          ],
+          userId: "1"
+        };
+        charts.push(newMockChart);
+        setIsCreateModalOpen(false);
+        setGeneratingChart(false);
+        alert("Chart created successfully!");
+      }, 1500);
+
+      /* 
+      const result = await generateChartMutation({
         variables: {
-          info: {
-            projectId: selectedDS.projectId,
-            userPrompt: newChart.prompt,
-            chartType: newChart.type === 'bar' ? 'bar chart' : 
-                      newChart.type === 'line' ? 'line chart' : 'pie chart'
+          input: {
+            dataSourceId: selectedDataSource,
+            prompt: newChart.prompt,
+            type: newChart.type
           }
-        },
-        fetchPolicy: 'no-cache' // Always fetch fresh data from server
+        }
       });
 
-      const chartResult = JSON.parse(result.data.generateChart);
-      console.log(" AI Response:", chartResult);
-
-      if (chartResult.promptResult) {
-        const chartJSData = convertAIToChartJS(chartResult, newChart.type);
-        const graphQLData = convertChartJSToGraphQL(chartJSData);
-
-        await createChart({
+      if (result.data?.generateChart) {
+        const aiResponse = result.data.generateChart;
+        const chartJSData = convertAIToChartJS(aiResponse, newChart.type);
+        const chartPoints = convertChartJSToGraphQL(chartJSData);
+        
+        await createChartMutation({
           variables: {
             input: {
               name: newChart.name,
               type: newChart.type,
-              data: graphQLData,
-              userId: user?.id || ''
+              data: chartPoints
             }
           }
         });
 
-        await refetch();
+        await refetchCharts();
         setIsCreateModalOpen(false);
-        setNewChart({ name: '', prompt: '', type: 'bar' });
-        alert(" Chart created successfully!");
-      } else {
-        alert("Failed to generate chart data. Please try a different prompt.");
       }
+      */
+
     } catch (error: any) {
       console.error(" Failed to generate chart:", error);
       alert(`Failed to generate chart: ${error.message}`);
@@ -437,12 +480,11 @@ const ChartsDashboard: React.FC = () => {
   const handleDeleteChart = async (chartId: string) => {
     if (!confirm("Are you sure you want to delete this chart?")) return;
 
-    try {
-      await deleteChart({ variables: { id: chartId } });
-      await refetch();
+    // Simulate chart deletion
+    const index = charts.findIndex(c => c.id === chartId);
+    if (index > -1) {
+      charts.splice(index, 1);
       alert("Chart deleted successfully!");
-    } catch (error: any) {
-      alert(`Failed to delete chart: ${error.message}`);
     }
   };
 
@@ -773,12 +815,12 @@ const ChartsDashboard: React.FC = () => {
                 >
                   {generatingChart ? (
                     <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Creating...
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Generating...
                     </>
                   ) : (
                     <>
-                      <Play className="w-5 h-5" />
+                      <Play size={20} />
                       Generate Chart
                     </>
                   )}
