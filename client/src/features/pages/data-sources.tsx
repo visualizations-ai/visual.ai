@@ -10,10 +10,14 @@ import {
   Edit3,
   Trash2,
   RefreshCw,
+  Menu,
+  LogOut,
 } from "lucide-react";
 import { useMutation, useQuery } from "@apollo/client";
 import { Sidebar } from "../../shared/sidebar";
-import { useAppSelector } from "../../hooks/redux-hooks";
+import { useAppSelector, useAppDispatch } from "../../hooks/redux-hooks";
+import { useNavigate } from "react-router-dom";
+import { logoutUser } from "../../store/auth-slice";
 import {
   GET_DATA_SOURCES,
   TEST_CONNECTION,
@@ -40,8 +44,11 @@ const ImprovedDataSources = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const { user } = useAppSelector((state) => state.auth);
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState<DataSourceForm>({
     projectId: "",
@@ -51,7 +58,6 @@ const ImprovedDataSources = () => {
     username: "",
     password: "",
   });
-
 
   const {
     data: dataSourcesData,
@@ -70,13 +76,22 @@ const ImprovedDataSources = () => {
 
   const dataSources = dataSourcesData?.getDataSources?.dataSource || [];
 
+  const handleLogout = async () => {
+    try {
+      await dispatch(logoutUser()).unwrap();
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout failed:", error);
+      navigate("/login");
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
-    
 
     if (connectionStatus === "success") {
       setConnectionStatus("idle");
@@ -242,47 +257,112 @@ const ImprovedDataSources = () => {
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-slate-100 via-indigo-50 to-slate-100">
-      <Sidebar />
-      <div className="flex-1 flex flex-col">
-        <div className="flex-1 overflow-y-auto bg-gradient-to-b from-indigo-50/90 to-slate-50/90 pb-24">
-          <div className="max-w-6xl mx-auto h-full p-6">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
-                <Database className="text-slate-700" size={28} />
-                <div>
-                  <h1 className="text-2xl font-semibold text-slate-800">
-                    Data Sources
-                  </h1>
-                  <p className="text-sm text-slate-600">
-                    Manage your database connections
-                    {user?.id && (
-                      <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                        User: {user.id.slice(-8)}
-                      </span>
-                    )}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleRefresh}
-                  disabled={dataSourcesLoading}
-                  className="flex items-center gap-2 px-3 py-2 text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
-                  title="Refresh data sources"
-                >
-                  <RefreshCw size={16} className={dataSourcesLoading ? "animate-spin" : ""} />
-                  {dataSourcesLoading ? "Refreshing..." : "Refresh"}
-                </button>
-                <button
-                  onClick={openModal}
-                  className="flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900"
-                >
-                  <Plus size={20} />
-                  Add Data Source
-                </button>
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:block">
+        <Sidebar />
+      </div>
+
+      {/* Mobile Sidebar */}
+      {isMobileSidebarOpen && (
+        <>
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+          <div className="fixed inset-y-0 left-0 w-72 bg-gradient-to-b from-slate-900 to-slate-800 z-50 lg:hidden transform transition-transform duration-300 ease-in-out">
+            <Sidebar forceOpen={true} onClose={() => setIsMobileSidebarOpen(false)} />
+          </div>
+        </>
+      )}
+      
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Mobile Header */}
+        <div className="lg:hidden bg-gradient-to-b from-indigo-50/90 to-slate-50/90 border-b border-slate-200">
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <button
+                onClick={() => setIsMobileSidebarOpen(true)}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <Menu size={20} className="text-slate-700" />
+              </button>
+              
+              <Database className="text-slate-700 flex-shrink-0" size={24} />
+              
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg font-semibold text-slate-800 truncate">
+                  Data Sources
+                </h1>
               </div>
             </div>
 
+            <div className="flex items-center gap-2 ml-3">
+              <button
+                onClick={handleRefresh}
+                disabled={dataSourcesLoading}
+                className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
+                title="Refresh"
+              >
+                <RefreshCw size={16} className={dataSourcesLoading ? "animate-spin" : ""} />
+              </button>
+              
+              <button
+                onClick={openModal}
+                className="p-2 text-white bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-lg"
+                title="Add Data Source"
+              >
+                <Plus size={16} />
+              </button>
+              
+              <button
+                onClick={handleLogout}
+                className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                title="Logout"
+              >
+                <LogOut size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop Header */}
+        <div className="hidden lg:flex items-center justify-between p-6 bg-gradient-to-b from-indigo-50/90 to-slate-50/90 border-b border-slate-200">
+          <div className="flex items-center gap-3">
+            <Database className="text-slate-700" size={28} />
+            <div>
+              <h1 className="text-2xl font-semibold text-slate-800">Data Sources</h1>
+              <p className="text-sm text-slate-600">
+                Manage your database connections
+                {user?.id && (
+                  <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                    User: {user.id.slice(-8)}
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleRefresh}
+              disabled={dataSourcesLoading}
+              className="flex items-center gap-2 px-3 py-2 text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+              title="Refresh data sources"
+            >
+              <RefreshCw size={16} className={dataSourcesLoading ? "animate-spin" : ""} />
+              {dataSourcesLoading ? "Refreshing..." : "Refresh"}
+            </button>
+            <button
+              onClick={openModal}
+              className="flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900"
+            >
+              <Plus size={20} />
+              Add Data Source
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto bg-gradient-to-b from-indigo-50/90 to-slate-50/90 pb-24">
+          <div className="max-w-6xl mx-auto h-full p-4 sm:p-6">
             {dataSourcesError && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
                 <div className="flex items-center gap-2">
@@ -316,7 +396,7 @@ const ImprovedDataSources = () => {
               </div>
             ) : (
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-                <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                <div className="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-200">
                   <h2 className="text-lg font-semibold text-gray-900">
                     Data Sources ({dataSources.length})
                   </h2>
@@ -325,7 +405,8 @@ const ImprovedDataSources = () => {
                   </p>
                 </div>
 
-                <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
+                {/* Desktop Table Header */}
+                <div className="hidden md:block bg-gray-50 px-4 sm:px-6 py-3 border-b border-gray-200">
                   <div className="grid grid-cols-12 gap-4 text-sm font-medium text-gray-600">
                     <div className="col-span-3">Data Source</div>
                     <div className="col-span-2">Type</div>
@@ -340,9 +421,10 @@ const ImprovedDataSources = () => {
                   {dataSources.map((dataSource: any) => (
                     <div
                       key={dataSource.id}
-                      className="px-6 py-4 hover:bg-gray-50 transition-colors"
+                      className="px-4 sm:px-6 py-4 hover:bg-gray-50 transition-colors"
                     >
-                      <div className="grid grid-cols-12 gap-4">
+                      {/* Desktop Layout */}
+                      <div className="hidden md:grid grid-cols-12 gap-4">
                         <div className="col-span-3 flex items-center gap-3">
                           <div className="bg-indigo-100 p-2 rounded-lg">
                             <Database className="w-4 h-4 text-indigo-600" />
@@ -425,6 +507,92 @@ const ImprovedDataSources = () => {
                           </button>
                         </div>
                       </div>
+
+                      {/* Mobile Layout */}
+                      <div className="md:hidden space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-indigo-100 p-2 rounded-lg flex-shrink-0">
+                              <Database className="w-4 h-4 text-indigo-600" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              {editingId === dataSource.id ? (
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={editingName}
+                                    onChange={(e) => setEditingName(e.target.value)}
+                                    className="px-2 py-1 text-sm border border-indigo-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 flex-1"
+                                    autoFocus
+                                  />
+                                  <button
+                                    onClick={() => handleEditSave(dataSource.id)}
+                                    className="text-green-600 hover:text-green-700 flex-shrink-0"
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={handleEditCancel}
+                                    className="text-red-600 hover:text-red-700 flex-shrink-0"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="font-semibold text-gray-900 truncate">
+                                  {dataSource.projectId}
+                                </div>
+                              )}
+                              <div className="text-sm text-gray-500">
+                                Recently created
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button
+                              onClick={() => handleEditStart(dataSource)}
+                              className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              title="Edit name"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() =>
+                                handleDelete(dataSource.id, dataSource.projectId)
+                              }
+                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete data source"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-500 block">Type:</span>
+                            <div className="mt-1">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                {dataSource.type}
+                              </span>
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 block">Database:</span>
+                            <div className="mt-1 text-gray-900 truncate">{dataSource.database}</div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4 text-green-500" />
+                            <span className="text-sm font-medium text-green-600">
+                              Connected
+                            </span>
+                          </div>
+                          <span className="text-sm text-gray-500">Recently</span>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -445,7 +613,7 @@ const ImprovedDataSources = () => {
               </p>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 max-h-96 overflow-y-auto">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Project ID *
@@ -568,17 +736,17 @@ const ImprovedDataSources = () => {
               )}
             </div>
 
-            <div className="p-6 border-t border-slate-700 flex gap-3">
+            <div className="p-6 border-t border-slate-700 flex flex-col sm:flex-row gap-3">
               <button
                 onClick={testConnection}
                 disabled={testingConnection}
-                className="flex items-center gap-2 px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50"
+                className="flex items-center justify-center gap-2 px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50"
               >
                 <TestTube className="w-4 h-4" />
                 {testingConnection ? "Testing..." : "Test Connection"}
               </button>
 
-              <div className="flex-1 flex gap-2">
+              <div className="flex gap-2 flex-1">
                 <button
                   onClick={closeModal}
                   className="flex-1 px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 transition-colors"
