@@ -4,6 +4,7 @@ import { DataSource } from "@/interfaces/auth.interface";
 import { DataSourceDocument, DataSourceProjectID } from "@/interfaces/datasource.interface";
 import { encrypt, decrypt } from "@/utils/encryption.util";
 import { GraphQLError } from "graphql";
+import { Not } from "typeorm";
 
 export const createNewDataSource = async (data: DataSourceDocument): Promise<DataSourceDocument> => {
   try {
@@ -121,6 +122,62 @@ export const deleteDatasource = async (datasourceId: string): Promise<boolean> =
     await queryRunner.release();
   }
 }
+export const updateDataSourceName = async (datasourceId: string, newName: string): Promise<{success: boolean, message: string, dataSource: DataSourceDocument | null}> => {
+  try {
+    const datasourceRepository = AppDataSource.getRepository(Datasource);
+    
+    const existingDataSource = await datasourceRepository.findOne({
+      where: { id: datasourceId }
+    });
+    
+    if (!existingDataSource) {
+      return {
+        success: false,
+        message: 'Data source not found',
+        dataSource: null
+      };
+    }
+
+    const duplicateCheck = await datasourceRepository.findOne({
+      where: { 
+        projectId: newName,
+        userId: existingDataSource.userId,
+        id: Not(datasourceId)
+      }
+    });
+
+    if (duplicateCheck) {
+      return {
+        success: false,
+        message: 'Project name already exists',
+        dataSource: null
+      };
+    }
+
+    await datasourceRepository.update(
+      { id: datasourceId },
+      { projectId: newName }
+    );
+
+    const updatedDataSource = await datasourceRepository.findOne({
+      where: { id: datasourceId }
+    });
+
+    return {
+      success: true,
+      message: 'Data source name updated successfully',
+      dataSource: updatedDataSource as DataSourceDocument
+    };
+
+  } catch (error: any) {
+    console.error('Error updating data source name:', error);
+    return {
+      success: false,
+      message: error?.message || 'Failed to update data source name',
+      dataSource: null
+    };
+  }
+}
 
 export const DatasourceService = {
   getDataSources,
@@ -128,5 +185,6 @@ export const DatasourceService = {
   getDataSourceById,
   getDataSourceByProjectId,
   editDataSource,
-  deleteDatasource
+  deleteDatasource,
+   updateDataSourceName
 };

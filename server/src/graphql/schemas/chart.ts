@@ -33,7 +33,7 @@ input CreateChartInput {
 input UpdateChartInput {
   name: String
   type: String
-  data: [PointInput!]
+cdata: [PointInput!] 
 }
 
 type DeleteResult {

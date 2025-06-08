@@ -68,6 +68,14 @@ export const CoreDatasourceResolver = {
         id: datasourceId
       };
     },
+    async updateDataSourceName(_: undefined, args: {datasourceId: string, newName: string}, contextValue: AppContext) {
+  const { req } = contextValue;
+  authenticateGraphQLRoute(req);
+  const { datasourceId, newName } = args;
+  
+  const result = await DatasourceService.updateDataSourceName(datasourceId, newName);
+  return result;
+},
   },
   SingleDataSource: {
     createdAt: (datasource: DataSourceDocument) => JSON.stringify(datasource.createdAt)

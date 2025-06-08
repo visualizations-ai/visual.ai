@@ -45,6 +45,13 @@ export const coreDataSourceSchema = buildSchema(`#graphql
     message: String!
   }
 
+   type UpdateDataSourceNameResponse {
+  success: Boolean!
+  message: String!
+  dataSource: SingleDataSource
+}
+
+
   type Query {
     getDataSources: DataSourceResponse
     getDataSourceByProjectId(projectId: String!): SingleDataSource
@@ -55,5 +62,6 @@ export const coreDataSourceSchema = buildSchema(`#graphql
     createPostgresqlDataSource(source: DataSourceInfo!): DataSourceResponse!
     editDataSource(source: DataSourceInfo!): DataSourceResponse
     deleteDatasource(datasourceId: String!): DeleteDatasourceResponse
+    updateDataSourceName(datasourceId: String!, newName: String!): UpdateDataSourceNameResponse!
   }
 `);
