@@ -2,35 +2,43 @@ import React, { useState, useEffect } from "react";
 import { Sidebar } from "../../shared/sidebar";
 import { 
   BarChart3, 
-  Plus, 
   Play,
   Download,
   Trash2,
   Menu,
   LogOut,
   AlertTriangle,
-  ChevronDown
+  ChevronDown,
+  Sparkles,
+  TrendingUp
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../hooks/redux-hooks";
 import { logoutUser } from "../../store/auth-slice";
-import { useQuery, useMutation, gql } from "@apollo/client";
+import { useQuery, useMutation, useApolloClient } from "@apollo/client";
 import { GET_DATA_SOURCES } from "../../graphql/data-sources";
+import { 
+  GENERATE_CHART_QUERY,
+  GET_CHARTS_QUERY, 
+  CREATE_CHART_MUTATION, 
+  DELETE_CHART_MUTATION 
+} from "../../graphql/charts";
 
-// Chart.js imports
+// Chart.js imports with proper registration
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   BarElement,
-  Title,
-  Tooltip,
-  Legend,
   LineElement,
   PointElement,
   ArcElement,
+  Title,
+  Tooltip,
+  Legend,
 } from 'chart.js';
-import { Bar, Line, Pie } from 'react-chartjs-2';
+
+import { Bar, Line, Pie, Doughnut } from 'react-chartjs-2';
 
 // Register Chart.js components
 ChartJS.register(
@@ -45,54 +53,7 @@ ChartJS.register(
   Legend
 );
 
-// GraphQL operations - inline to avoid import issues
-const GENERATE_CHART_QUERY = gql`
-  query GenerateChart($info: AiChartQuery!) {
-    generateChart(info: $info)
-  }
-`;
-
-const GET_CHARTS_QUERY = gql`
-  query GetCharts {
-    getCharts {
-      id
-      name
-      type
-      data {
-        x
-        y
-      }
-      projectId
-      createdAt
-    }
-  }
-`;
-
-const CREATE_CHART_MUTATION = gql`
-  mutation CreateChart($input: CreateChartInput!) {
-    createChart(input: $input) {
-      id
-      name
-      type
-      data {
-        x
-        y
-      }
-      projectId
-      createdAt
-    }
-  }
-`;
-
-const DELETE_CHART_MUTATION = gql`
-  mutation DeleteChart($id: String!) {
-    deleteChart(id: $id) {
-      message
-    }
-  }
-`;
-
-// Types - inline to avoid import issues
+// Types
 interface ChartPoint {
   x: number;
   y: number;
@@ -103,164 +64,270 @@ interface ChartData {
   name: string;
   type: string;
   data: ChartPoint[];
+  userId: string;
+}
+
+interface DataSource {
+  id: string;
   projectId: string;
-  createdAt: string;
+  type: string;
+  database: string;
 }
 
 interface NewChartForm {
   name: string;
   prompt: string;
-  type: 'bar' | 'line' | 'pie';
+  type: 'bar' | 'line' | 'pie' | 'doughnut';
 }
 
-// DataSourceSelector component - inline to avoid import issues
-const DataSourceSelector = ({ selectedDataSource, onDataSourceChange, dataSources, loading }: any) => (
-  <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
-    <label className="block text-sm font-medium text-slate-700 mb-2">
-      Select Data Source
+// Color palette
+const colors = [
+  'rgba(99, 102, 241, 0.8)',   // Indigo
+  'rgba(236, 72, 153, 0.8)',   // Pink
+  'rgba(34, 197, 94, 0.8)',    // Green
+  'rgba(251, 146, 60, 0.8)',   // Orange
+  'rgba(168, 85, 247, 0.8)',   // Purple
+  'rgba(14, 165, 233, 0.8)',   // Sky blue
+  'rgba(239, 68, 68, 0.8)',    // Red
+  'rgba(245, 158, 11, 0.8)',   // Amber
+];
+
+// Helper functions
+const convertAIToChartJS = (aiResponse: any, chartType: string) => {
+  try {
+    console.log('🔄 Converting AI response:', aiResponse);
+    
+    // Handle the response structure from your server
+    const { promptResult } = aiResponse;
+    
+    if (!promptResult?.input?.chart) {
+      console.warn('⚠️ Invalid AI response format, using fallback data');
+      throw new Error('Invalid AI response format');
+    }
+
+    const chartConfig = promptResult.input.chart;
+    
+    if (chartConfig.data && Array.isArray(chartConfig.data)) {
+      const data = chartConfig.data;
+      
+      switch (chartType) {
+        case 'bar':
+        case 'line': {
+          const labels = data.map((item: any, index: number) => {
+            return item[chartConfig.xAxis] || 
+                   item.label || 
+                   item.name || 
+                   `Item ${index + 1}`;
+          });
+          
+          const values = data.map((item: any) => {
+            const value = item[chartConfig.yAxis] || item.value || item.count || 0;
+            return Number(value);
+          });
+          
+          return {
+            labels,
+            datasets: [{
+              label: chartConfig.title || chartConfig.yAxis || 'Value',
+              data: values,
+              backgroundColor: chartType === 'bar' 
+                ? colors.slice(0, values.length)
+                : 'rgba(99, 102, 241, 0.2)',
+              borderColor: 'rgba(99, 102, 241, 1)',
+              borderWidth: 2,
+              fill: chartType === 'line',
+              tension: chartType === 'line' ? 0.4 : 0,
+            }]
+          };
+        }
+        
+        case 'pie':
+        case 'doughnut': {
+          const pieLabels = data.map((item: any, index: number) => {
+            return item.segment || 
+                   item.label || 
+                   item.name || 
+                   item[chartConfig.xAxis] || 
+                   `Segment ${index + 1}`;
+          });
+          
+          const pieValues = data.map((item: any) => {
+            const value = item.value || item[chartConfig.yAxis] || item.count || 0;
+            return Number(value);
+          });
+          
+          return {
+            labels: pieLabels,
+            datasets: [{
+              data: pieValues,
+              backgroundColor: colors.slice(0, pieValues.length),
+              borderColor: '#ffffff',
+              borderWidth: 2,
+            }]
+          };
+        }
+        
+        default: {
+          return {
+            labels: ['Data 1', 'Data 2', 'Data 3'],
+            datasets: [{
+              label: 'Sample Data',
+              data: [10, 20, 30],
+              backgroundColor: colors.slice(0, 3),
+              borderColor: 'rgba(99, 102, 241, 1)',
+              borderWidth: 2,
+            }]
+          };
+        }
+      }
+    }
+    
+    // Fallback for simple data
+    return {
+      labels: ['Data 1', 'Data 2', 'Data 3'],
+      datasets: [{
+        label: 'Sample Data',
+        data: [10, 20, 30],
+        backgroundColor: colors.slice(0, 3),
+        borderColor: 'rgba(99, 102, 241, 1)',
+        borderWidth: 2,
+      }]
+    };
+  } catch (error) {
+    console.error('❌ Error converting AI response:', error);
+    // Return fallback data
+    return {
+      labels: ['Sample 1', 'Sample 2', 'Sample 3'],
+      datasets: [{
+        label: 'Sample Data',
+        data: [10, 20, 30],
+        backgroundColor: colors.slice(0, 3),
+        borderColor: 'rgba(99, 102, 241, 1)',
+        borderWidth: 2,
+      }]
+    };
+  }
+};
+
+const convertChartJSToGraphQL = (chartJSData: any): ChartPoint[] => {
+  const points: ChartPoint[] = [];
+  if (chartJSData.datasets?.[0]?.data) {
+    chartJSData.datasets[0].data.forEach((value: number, index: number) => {
+      points.push({ x: index, y: Number(value) || 0 });
+    });
+  }
+  return points;
+};
+
+const convertGraphQLToChartJS = (chart: ChartData) => {
+  const labels = chart.data.map((_, index) => `Point ${index + 1}`);
+  const data = chart.data.map(point => point.y);
+  
+  return {
+    labels,
+    datasets: [{
+      label: chart.name,
+      data,
+      backgroundColor: colors.slice(0, data.length),
+      borderColor: 'rgba(99, 102, 241, 1)',
+      borderWidth: 2
+    }]
+  };
+};
+
+const getChartOptions = (type: string, title: string) => {
+  const baseOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+        labels: {
+          usePointStyle: true,
+          padding: 20,
+        }
+      },
+      title: {
+        display: true,
+        text: title,
+        font: {
+          size: 16,
+          weight: 'bold' as const
+        }
+      }
+    }
+  };
+
+  if (type === 'line' || type === 'bar') {
+    return {
+      ...baseOptions,
+      scales: {
+        y: {
+          beginAtZero: true,
+        }
+      }
+    };
+  }
+
+  return baseOptions;
+};
+
+// Sample prompts
+const samplePrompts = [
+  {
+    type: 'bar' as const,
+    prompt: "Show me the top 10 customers by total purchase amount",
+    icon: "📊"
+  },
+  {
+    type: 'line' as const,
+    prompt: "Display sales trends over the last 12 months",
+    icon: "📈"
+  },
+  {
+    type: 'pie' as const,
+    prompt: "Break down revenue by product category",
+    icon: "🥧"
+  },
+  {
+    type: 'doughnut' as const,
+    prompt: "Show user distribution by region",
+    icon: "🍩"
+  }
+];
+
+// Data Source Selector Component
+const DataSourceSelector: React.FC<{
+  selectedDataSource: string;
+  onDataSourceChange: (id: string) => void;
+  dataSources: DataSource[];
+  loading: boolean;
+}> = ({ selectedDataSource, onDataSourceChange, dataSources, loading }) => (
+  <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+    <label className="block text-sm font-semibold text-slate-700 mb-3">
+      📊 Select Data Source
     </label>
     <div className="relative">
       <select
         value={selectedDataSource}
         onChange={(e) => onDataSourceChange(e.target.value)}
-        className="w-full p-3 border border-slate-300 rounded-lg bg-white text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent appearance-none"
+        className="w-full p-4 border border-slate-300 rounded-xl bg-white text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent appearance-none shadow-sm"
         disabled={loading}
       >
-        <option value="">Select a data source...</option>
-        {dataSources.map((ds: any) => (
+        <option value="">Choose your data source...</option>
+        {dataSources.map((ds) => (
           <option key={ds.id} value={ds.id}>
-            {ds.projectId} ({ds.database})
+            🗄️ {ds.projectId} ({ds.database})
           </option>
         ))}
       </select>
-      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+      <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
     </div>
   </div>
 );
 
-// Utility functions - inline to avoid import issues
-const convertAIToChartJS = (chartConfig: any, chartType: string) => {
-  const { chart } = chartConfig;
-  
-  switch (chartType) {
-    case 'bar':
-    case 'line':
-      const labels = chart.data?.map((item: any) => 
-        item[chart.xAxis] || `Item ${chart.data.indexOf(item) + 1}`
-      ) || [];
-      const values = chart.data?.map((item: any) => 
-        item[chart.yAxis] || 0
-      ) || [];
-      
-      return {
-        labels,
-        datasets: [{
-          label: chart.yAxis || 'Value',
-          data: values,
-          backgroundColor: chartType === 'bar' ? 'rgba(99, 102, 241, 0.6)' : undefined,
-          borderColor: 'rgba(99, 102, 241, 1)',
-          borderWidth: 2,
-          fill: chartType === 'line' ? false : undefined
-        }]
-      };
-    
-    case 'pie':
-      const pieLabels = chart.data?.map((item: any) => 
-        item.segment || item[chart.xAxis] || `Segment ${chart.data.indexOf(item) + 1}`
-      ) || [];
-      const pieValues = chart.data?.map((item: any) => 
-        item.value || item[chart.yAxis] || 0
-      ) || [];
-      
-      return {
-        labels: pieLabels,
-        datasets: [{
-          data: pieValues,
-          backgroundColor: chart.data?.map((item: any, index: number) => 
-            item.color || `hsl(${(index * 360 / chart.data.length)}, 70%, 60%)`
-          ) || []
-        }]
-      };
-    
-    default:
-      return { labels: [], datasets: [] };
-  }
-};
-
-const convertChartJSToGraphQL = (chartJSData: any, chartType: string): ChartPoint[] => {
-  const points: ChartPoint[] = [];
-  chartJSData.datasets[0].data.forEach((value: number, index: number) => {
-    points.push({ x: index, y: value });
-  });
-  return points;
-};
-
-const convertGraphQLToChartJS = (chart: ChartData) => {
-  const labels = chart.data.map((_, index) => `Item ${index + 1}`);
-  const data = chart.data.map(point => point.y);
-  
-  const baseConfig = {
-    labels,
-    datasets: [{
-      label: chart.name,
-      data
-    }]
-  };
-  
-  switch (chart.type) {
-    case 'bar':
-      return {
-        ...baseConfig,
-        datasets: [{
-          ...baseConfig.datasets[0],
-          backgroundColor: 'rgba(99, 102, 241, 0.6)',
-          borderColor: 'rgba(99, 102, 241, 1)',
-          borderWidth: 2
-        }]
-      };
-    
-    case 'line':
-      return {
-        ...baseConfig,
-        datasets: [{
-          ...baseConfig.datasets[0],
-          borderColor: 'rgba(99, 102, 241, 1)',
-          backgroundColor: 'rgba(99, 102, 241, 0.1)',
-          borderWidth: 2,
-          fill: false
-        }]
-      };
-    
-    case 'pie':
-      return {
-        ...baseConfig,
-        datasets: [{
-          data,
-          backgroundColor: labels.map((_, index) => 
-            `hsl(${(index * 360 / labels.length)}, 70%, 60%)`
-          )
-        }]
-      };
-    
-    default:
-      return baseConfig;
-  }
-};
-
-const exportChart = (chart: ChartData) => {
-  const dataStr = JSON.stringify(chart, null, 2);
-  const dataBlob = new Blob([dataStr], { type: 'application/json' });
-  const url = URL.createObjectURL(dataBlob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${chart.name.replace(/\s+/g, '_')}_chart.json`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-};
-
-const ChartsDashboard = () => {
+// Main Component
+const ChartsDashboard: React.FC = () => {
   const [selectedDataSource, setSelectedDataSource] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -273,21 +340,20 @@ const ChartsDashboard = () => {
   const { user } = useAppSelector(state => state.auth);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const apolloClient = useApolloClient();
 
-  // GraphQL operations
-  const { data: dataSourcesData, loading: loadingDataSources, error: dataSourceError } = useQuery(GET_DATA_SOURCES, {
-    errorPolicy: 'all',
-  });
-
-  const { data: chartsData, loading: loadingCharts, error: chartsError } = useQuery(GET_CHARTS_QUERY, {
-    errorPolicy: 'all',
-  });
-
-  const [generateChart, { loading: generatingChart }] = useMutation(GENERATE_CHART_QUERY);
+  // GraphQL hooks - Fixed to use the correct hook types
+  const { data: dataSourcesData, loading: loadingDataSources, error: dataSourceError } = useQuery(GET_DATA_SOURCES);
+  const { data: chartsData, loading: loadingCharts, error: chartsError, refetch } = useQuery(GET_CHARTS_QUERY);
+  
+  // Use Apollo Client directly for the chart generation query
   const [createChart] = useMutation(CREATE_CHART_MUTATION);
   const [deleteChart] = useMutation(DELETE_CHART_MUTATION);
+  
+  // State for loading chart generation
+  const [generatingChart, setGeneratingChart] = useState(false);
 
-  const dataSources = dataSourcesData?.getDataSources?.dataSource || [];
+  const dataSources: DataSource[] = dataSourcesData?.getDataSources?.dataSource || [];
   const charts: ChartData[] = chartsData?.getCharts || [];
 
   useEffect(() => {
@@ -307,25 +373,24 @@ const ChartsDashboard = () => {
   };
 
   const handleGenerateChart = async () => {
-    if (!newChart.name || !newChart.prompt || !selectedDataSource) {
+    if (!newChart.name.trim() || !newChart.prompt.trim() || !selectedDataSource) {
       alert("Please fill in all fields");
       return;
     }
 
     try {
-      const selectedDS = dataSources.find((ds: any) => ds.id === selectedDataSource);
+      const selectedDS = dataSources.find(ds => ds.id === selectedDataSource);
       if (!selectedDS) {
         alert("Please select a valid data source");
         return;
       }
 
       console.log("🤖 Generating chart with AI...");
-      console.log("Prompt:", newChart.prompt);
-      console.log("Chart Type:", newChart.type);
-      console.log("Project ID:", selectedDS.projectId);
-
-      // Generate chart using AI
-      const result = await generateChart({
+      setGeneratingChart(true);
+      
+      // Use Apollo Client directly to execute the query
+      const result = await apolloClient.query({
+        query: GENERATE_CHART_QUERY,
         variables: {
           info: {
             projectId: selectedDS.projectId,
@@ -333,46 +398,40 @@ const ChartsDashboard = () => {
             chartType: newChart.type === 'bar' ? 'bar chart' : 
                       newChart.type === 'line' ? 'line chart' : 'pie chart'
           }
-        }
+        },
+        fetchPolicy: 'no-cache' // Always fetch fresh data from server
       });
 
       const chartResult = JSON.parse(result.data.generateChart);
       console.log("🎯 AI Response:", chartResult);
 
-      const { promptResult } = chartResult;
+      if (chartResult.promptResult) {
+        const chartJSData = convertAIToChartJS(chartResult, newChart.type);
+        const graphQLData = convertChartJSToGraphQL(chartJSData);
 
-      if (promptResult?.input) {
-        // Convert AI result to Chart.js format
-        const chartJSData = convertAIToChartJS(promptResult.input, newChart.type);
-        console.log("📊 Chart.js Data:", chartJSData);
-        
-        // Convert to GraphQL format
-        const graphQLData = convertChartJSToGraphQL(chartJSData, newChart.type);
-        console.log("💾 GraphQL Data:", graphQLData);
-
-        // Create chart
         await createChart({
           variables: {
             input: {
               name: newChart.name,
               type: newChart.type,
               data: graphQLData,
-              projectId: selectedDS.projectId
+              userId: user?.id || ''
             }
-          },
-          refetchQueries: [{ query: GET_CHARTS_QUERY }]
+          }
         });
 
+        await refetch();
         setIsCreateModalOpen(false);
         setNewChart({ name: '', prompt: '', type: 'bar' });
-        alert("✅ Chart created successfully from your prompt!");
+        alert("✅ Chart created successfully!");
       } else {
-        console.error("❌ No chart data returned from AI");
-        alert("Failed to generate chart data from AI. Please try a different prompt.");
+        alert("Failed to generate chart data. Please try a different prompt.");
       }
     } catch (error: any) {
       console.error("❌ Failed to generate chart:", error);
       alert(`Failed to generate chart: ${error.message}`);
+    } finally {
+      setGeneratingChart(false);
     }
   };
 
@@ -380,10 +439,8 @@ const ChartsDashboard = () => {
     if (!confirm("Are you sure you want to delete this chart?")) return;
 
     try {
-      await deleteChart({
-        variables: { id: chartId },
-        refetchQueries: [{ query: GET_CHARTS_QUERY }]
-      });
+      await deleteChart({ variables: { id: chartId } });
+      await refetch();
       alert("Chart deleted successfully!");
     } catch (error: any) {
       alert(`Failed to delete chart: ${error.message}`);
@@ -393,55 +450,70 @@ const ChartsDashboard = () => {
   const renderChart = (chart: ChartData) => {
     try {
       const chartJSData = convertGraphQLToChartJS(chart);
+      const options = getChartOptions(chart.type, chart.name);
       
-      const commonOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'top' as const,
-          },
-          title: {
-            display: true,
-            text: chart.name,
-          },
-        },
-      };
-
       switch (chart.type) {
         case 'bar':
-          return <Bar data={chartJSData} options={commonOptions} />;
+          return <Bar data={chartJSData} options={options} />;
         case 'line':
-          return <Line data={chartJSData} options={commonOptions} />;
+          return <Line data={chartJSData} options={options} />;
         case 'pie':
-          return <Pie data={chartJSData} options={commonOptions} />;
+          return <Pie data={chartJSData} options={options} />;
+        case 'doughnut':
+          return <Doughnut data={chartJSData} options={options} />;
         default:
-          return <div className="text-red-500">Unknown chart type: {chart.type}</div>;
+          return <Bar data={chartJSData} options={options} />;
       }
     } catch (error) {
       console.error("Error rendering chart:", error);
-      return <div className="text-red-500">Error rendering chart</div>;
+      return (
+        <div className="flex items-center justify-center h-full text-red-500">
+          <div className="text-center">
+            <AlertTriangle className="w-8 h-8 mx-auto mb-2" />
+            <p>Error rendering chart</p>
+          </div>
+        </div>
+      );
     }
   };
 
-  // If there are errors, show them
+  const useSamplePrompt = (prompt: any) => {
+    setNewChart({
+      ...newChart,
+      prompt: prompt.prompt,
+      type: prompt.type,
+      name: prompt.prompt.split(' ').slice(0, 4).join(' ')
+    });
+  };
+
+  const exportChart = (chart: ChartData) => {
+    const dataStr = JSON.stringify(chart, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${chart.name.replace(/\s+/g, '_')}_chart.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Error handling
   if (dataSourceError || chartsError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-indigo-50 to-slate-100">
+        <div className="bg-white p-8 rounded-xl shadow-lg max-w-md w-full">
           <div className="flex items-center mb-4">
             <AlertTriangle className="text-red-500 mr-3" size={24} />
-            <h2 className="text-lg font-semibold text-red-700">Error Loading Page</h2>
+            <h2 className="text-lg font-semibold text-red-700">Error Loading</h2>
           </div>
-          {dataSourceError && (
-            <p className="text-sm text-red-600 mb-2">Data sources: {dataSourceError.message}</p>
-          )}
-          {chartsError && (
-            <p className="text-sm text-red-600 mb-4">Charts: {chartsError.message}</p>
-          )}
+          <p className="text-sm text-red-600 mb-4">
+            {dataSourceError?.message || chartsError?.message}
+          </p>
           <button 
             onClick={() => window.location.reload()}
-            className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
+            className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors"
           >
             Reload Page
           </button>
@@ -464,7 +536,7 @@ const ChartsDashboard = () => {
             className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
             onClick={() => setIsMobileSidebarOpen(false)}
           />
-          <div className="fixed inset-y-0 left-0 w-72 bg-gradient-to-b from-slate-900 to-slate-800 z-50 lg:hidden transform transition-transform duration-300 ease-in-out">
+          <div className="fixed inset-y-0 left-0 w-72 bg-gradient-to-b from-slate-900 to-slate-800 z-50 lg:hidden">
             <Sidebar forceOpen={true} onClose={() => setIsMobileSidebarOpen(false)} />
           </div>
         </>
@@ -472,31 +544,21 @@ const ChartsDashboard = () => {
       
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile Header */}
-        <div className="lg:hidden bg-gradient-to-b from-indigo-50/90 to-slate-50/90 border-b border-slate-200">
+        <div className="lg:hidden bg-white border-b border-slate-200">
           <div className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => setIsMobileSidebarOpen(true)}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                aria-label="Open menu"
+                className="p-2 hover:bg-slate-100 rounded-lg"
               >
-                <Menu size={20} className="text-slate-700" />
+                <Menu size={20} />
               </button>
-              
-              <BarChart3 className="text-slate-700 flex-shrink-0" size={24} />
-              
-              <div className="min-w-0 flex-1">
-                <h1 className="text-lg font-semibold text-slate-800 truncate">
-                  Charts Dashboard
-                </h1>
-              </div>
+              <BarChart3 className="text-indigo-600" size={24} />
+              <h1 className="text-lg font-bold text-slate-800">Charts</h1>
             </div>
-
             <button
               onClick={handleLogout}
-              className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-              aria-label="Logout"
-              title="Logout"
+              className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
             >
               <LogOut size={18} />
             </button>
@@ -504,24 +566,29 @@ const ChartsDashboard = () => {
         </div>
 
         {/* Desktop Header */}
-        <div className="hidden lg:flex items-center justify-between p-4 bg-gradient-to-b from-indigo-50/90 to-slate-50/90 border-b border-slate-200">
-          <div className="flex items-center gap-3">
-            <BarChart3 className="text-slate-700" size={28} />
+        <div className="hidden lg:flex items-center justify-between p-6 bg-white border-b border-slate-200">
+          <div className="flex items-center gap-4">
+            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-3 rounded-xl">
+              <BarChart3 className="text-white" size={32} />
+            </div>
             <div>
-              <h1 className="text-2xl font-semibold text-slate-800">Charts Dashboard</h1>
-              <p className="text-sm text-slate-600">🤖 Create charts from AI prompts using Chart.js</p>
+              <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-2">
+                Charts Dashboard
+                <Sparkles className="text-indigo-500" size={24} />
+              </h1>
+              <p className="text-slate-600">Create beautiful charts with AI</p>
             </div>
           </div>
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900"
+            className="flex items-center gap-2 px-6 py-3 text-white rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-90 transition-all shadow-lg"
           >
-            <Plus size={20} />
-            Create Chart
+            <Sparkles size={20} />
+            Create with AI
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3 sm:p-6">
+        <div className="flex-1 overflow-y-auto p-6">
           {/* Data Source Selector */}
           <div className="mb-6">
             <DataSourceSelector
@@ -536,67 +603,64 @@ const ChartsDashboard = () => {
           <div className="lg:hidden mb-6">
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 text-white rounded-lg bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900"
+              className="w-full flex items-center justify-center gap-3 px-6 py-4 text-white rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600"
             >
-              <Plus size={20} />
-              🤖 Create Chart with AI
+              <Sparkles size={20} />
+              Create Chart with AI
             </button>
           </div>
 
           {/* Charts Grid */}
           {loadingCharts ? (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
-              <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+              <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
               <p className="text-slate-500">Loading charts...</p>
             </div>
           ) : charts.length === 0 ? (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
-              <BarChart3 className="mx-auto text-slate-400 mb-4" size={48} />
-              <h3 className="text-lg font-medium text-slate-700 mb-2">
-                No charts yet
-              </h3>
-              <p className="text-slate-500 mb-6">
-                🤖 Create your first chart using AI prompts! <br />
-                Just describe what you want to see and we'll query your data.
-              </p>
+            <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+              <div className="bg-gradient-to-br from-indigo-500 to-purple-600 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <BarChart3 className="text-white" size={40} />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-700 mb-3">No charts yet</h3>
+              <p className="text-slate-500 mb-8">Create your first chart using AI prompts!</p>
               <button
                 onClick={() => setIsCreateModalOpen(true)}
-                className="px-6 py-2 text-white rounded-lg hover:opacity-90 transition-colors bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900"
+                className="px-8 py-3 text-white rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-90 transition-all"
               >
                 Create Your First Chart
               </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {charts.map((chart: ChartData) => (
-                <div key={chart.id} className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-                  <div className="p-4 border-b border-slate-200 bg-slate-50">
+              {charts.map((chart) => (
+                <div key={chart.id} className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all group">
+                  <div className="p-4 border-b border-slate-200">
                     <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium text-slate-800">{chart.name}</h3>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-slate-800">{chart.name}</h3>
                         <p className="text-sm text-slate-500">
-                          {new Date(chart.createdAt).toLocaleDateString()}
+                          Chart #{charts.indexOf(chart) + 1}
+                          <span className="ml-2 bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-xs capitalize">
+                            {chart.type}
+                          </span>
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => exportChart(chart)}
-                          className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
-                          title="Export chart"
+                          className="p-2 text-slate-400 hover:text-indigo-600 rounded-lg"
                         >
                           <Download className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteChart(chart.id)}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                          title="Delete chart"
+                          className="p-2 text-slate-400 hover:text-red-600 rounded-lg"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
                   </div>
-                  
                   <div className="p-4" style={{ height: '300px' }}>
                     {renderChart(chart)}
                   </div>
@@ -609,89 +673,114 @@ const ChartsDashboard = () => {
         {/* Create Chart Modal */}
         {isCreateModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700">
-              <div className="p-6 border-b border-slate-700">
-                <h2 className="text-xl font-semibold text-white mb-2">
-                  🤖 Create Chart with AI
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b bg-gradient-to-r from-indigo-50 to-purple-50">
+                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                  <Sparkles className="text-indigo-600" size={24} />
+                  Create Chart with AI
                 </h2>
-                <p className="text-slate-400 text-sm">
-                  Describe what you want to visualize and AI will create it from your data
-                </p>
+                <p className="text-slate-600 mt-1">Describe what you want to visualize</p>
               </div>
 
-              <div className="p-6 space-y-4">
+              <div className="p-6 space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
                     Chart Name *
                   </label>
                   <input
                     type="text"
                     value={newChart.name}
                     onChange={(e) => setNewChart({ ...newChart, name: e.target.value })}
-                    className="w-full p-3 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="e.g., Monthly Sales Report"
-                    required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
                     Chart Type *
                   </label>
-                  <select
-                    value={newChart.type}
-                    onChange={(e) => setNewChart({ ...newChart, type: e.target.value as 'bar' | 'line' | 'pie' })}
-                    className="w-full p-3 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  >
-                    <option value="bar">📊 Bar Chart</option>
-                    <option value="line">📈 Line Chart</option>
-                    <option value="pie">🥧 Pie Chart</option>
-                  </select>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { value: 'bar', label: '📊 Bar Chart' },
+                      { value: 'line', label: '📈 Line Chart' },
+                      { value: 'pie', label: '🥧 Pie Chart' },
+                      { value: 'doughnut', label: '🍩 Doughnut Chart' }
+                    ].map((type) => (
+                      <label key={type.value} className="cursor-pointer">
+                        <input
+                          type="radio"
+                          name="chartType"
+                          value={type.value}
+                          checked={newChart.type === type.value}
+                          onChange={(e) => setNewChart({ ...newChart, type: e.target.value as any })}
+                          className="sr-only"
+                        />
+                        <div className={`p-3 border-2 rounded-lg text-center transition-all ${
+                          newChart.type === type.value 
+                            ? 'border-indigo-500 bg-indigo-50' 
+                            : 'border-slate-200 hover:border-indigo-300'
+                        }`}>
+                          {type.label}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
                     What do you want to see? *
                   </label>
                   <textarea
                     value={newChart.prompt}
                     onChange={(e) => setNewChart({ ...newChart, prompt: e.target.value })}
-                    className="w-full p-3 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
-                    placeholder="Examples:
-• Show sales by month for the last year
-• Display top 10 customers by revenue  
-• Compare product categories by quantity
-• Show user registrations over time"
-                    rows={4}
-                    required
+                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                    placeholder="Describe your visualization..."
+                    rows={3}
                   />
-                  <p className="text-xs text-slate-400 mt-2">
-                    💡 Be specific! The AI will query your database based on this description.
-                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    💡 Try these examples:
+                  </label>
+                  <div className="space-y-2">
+                    {samplePrompts.map((sample, index) => (
+                      <button
+                        key={index}
+                        onClick={() => useSamplePrompt(sample)}
+                        className="w-full text-left p-3 border rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
+                      >
+                        <span className="mr-2">{sample.icon}</span>
+                        <span className="text-sm">{sample.prompt}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div className="p-6 border-t border-slate-700 flex gap-3">
+              <div className="p-6 border-t bg-slate-50 flex gap-3">
                 <button
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="flex-1 px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 transition-colors"
+                  className="flex-1 px-6 py-3 border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleGenerateChart}
                   disabled={generatingChart || !newChart.name || !newChart.prompt || !selectedDataSource}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {generatingChart ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      AI is working...
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Creating...
                     </>
                   ) : (
                     <>
-                      <Play className="w-4 h-4" />
-                      🤖 Generate Chart
+                      <Play className="w-5 h-5" />
+                      Generate Chart
                     </>
                   )}
                 </button>

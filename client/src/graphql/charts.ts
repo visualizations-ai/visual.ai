@@ -1,13 +1,13 @@
 import { gql } from "@apollo/client";
 
-// AI Chart Generation Query - matching existing server
+// AI Chart Generation Query
 export const GENERATE_CHART_QUERY = gql`
   query GenerateChart($info: AiChartQuery!) {
     generateChart(info: $info)
   }
 `;
 
-// Chart CRUD Operations - matching existing server schema
+// Chart CRUD Operations - ONLY fields that exist in your database
 export const GET_CHARTS_QUERY = gql`
   query GetCharts {
     getCharts {
@@ -18,8 +18,7 @@ export const GET_CHARTS_QUERY = gql`
         x
         y
       }
-      projectId
-      createdAt
+      userId
     }
   }
 `;
@@ -34,8 +33,7 @@ export const GET_CHART_QUERY = gql`
         x
         y
       }
-      projectId
-      createdAt
+      userId
     }
   }
 `;
@@ -50,8 +48,7 @@ export const CREATE_CHART_MUTATION = gql`
         x
         y
       }
-      projectId
-      createdAt
+      userId
     }
   }
 `;
@@ -66,8 +63,7 @@ export const UPDATE_CHART_MUTATION = gql`
         x
         y
       }
-      projectId
-      updatedAt
+      userId
     }
   }
 `;
@@ -79,3 +75,12 @@ export const DELETE_CHART_MUTATION = gql`
     }
   }
 `;
+
+export default {
+  GENERATE_CHART_QUERY,
+  GET_CHARTS_QUERY,
+  GET_CHART_QUERY,
+  CREATE_CHART_MUTATION,
+  UPDATE_CHART_MUTATION,
+  DELETE_CHART_MUTATION
+};
