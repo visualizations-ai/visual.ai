@@ -1,10 +1,6 @@
 import React, { useState } from "react";
 import { AppLayout } from "../../shared/app-layout";
 import { Settings, Save, Loader2 } from "lucide-react";
-import { useTranslation } from "react-i18next";
-
-const { t } = useTranslation();
-
 
 export const SettingsPage = () => {
   const [settings, setSettings] = useState({
@@ -89,6 +85,7 @@ type SettingToggleProps = {
   checked: boolean;
   onToggle: () => void;
 };
+
 const SettingToggle = ({ label, description, checked, onToggle }: SettingToggleProps) => {
   return (
     <div className="flex justify-between items-center border border-gray-200 rounded-lg p-4 shadow-sm">

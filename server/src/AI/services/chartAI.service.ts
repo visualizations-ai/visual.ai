@@ -6,7 +6,7 @@ import { MODEL_TOOLS } from "@/AI/utils/modelTools";
 import Anthropic from "@anthropic-ai/sdk";
 import { Pool, PoolClient, QueryResult } from "pg";
 import { DatasourceService } from "@/services/datasource.service";
-import { base64Decoded } from "@/utils/utils";
+import { decrypt } from "@/utils/encryption.util";
 import { GraphQLError } from "graphql";
 import { ToolUseBlock } from "@anthropic-ai/sdk/resources";
 import { CHART_PROMPTS } from "@/AI/prompts/chartPrompt";
@@ -16,6 +16,35 @@ import { SYSTEM_PROMPT } from "@/AI/prompts/systemPrompt";
 const anthropicClient = new Anthropic({
   apiKey: envConfig.CLAUDE_API_KEY
 });
+
+// פונקציה עזר לפענוח בטוח
+function safeDecrypt(encryptedValue: string | undefined | null): string {
+  if (!encryptedValue) return '';
+  
+  try {
+    // נסה קודם decrypt (לנתונים מוצפנים)
+    const decrypted = decrypt(encryptedValue);
+    if (decrypted && decrypted !== encryptedValue) {
+      return decrypted;
+    }
+    
+    // אם זה לא עבד, נסה base64 פשוט
+    try {
+      const base64Decoded = Buffer.from(encryptedValue, 'base64').toString('utf-8');
+      if (base64Decoded && base64Decoded !== encryptedValue) {
+        return base64Decoded;
+      }
+    } catch (base64Error) {
+      // אם base64 נכשל, תמשיך
+    }
+    
+    // אם כלום לא עבד, החזר כמו שזה
+    return encryptedValue;
+  } catch (error) {
+    console.warn('Decryption failed, using original value:', error);
+    return encryptedValue || '';
+  }
+}
 
 export const generateChart = async (info: AiChart) => {
   let client: PoolClient | null = null;
@@ -30,15 +59,18 @@ export const generateChart = async (info: AiChart) => {
     console.log(`[INFO] Retrieved project datasource for "${projectId}"`);
 
     const { databaseName, databaseUrl, username, password, port } = project;
-    pool = pgPool(
-      base64Decoded(databaseUrl!)!,
-      base64Decoded(username!)!,
-      base64Decoded(password!)!,
-      port!,
-      base64Decoded(databaseName!)!
-    );
+    
+    // שימוש בפונקציה החדשה לפענוח בטוח
+    const host = safeDecrypt(databaseUrl);
+    const user = safeDecrypt(username);
+    const pass = safeDecrypt(password);
+    const dbName = safeDecrypt(databaseName);
+    
+    console.log(`[DEBUG] Connection details - Host: ${host}, User: ${user}, DB: ${dbName}, Port: ${port}`);
+    
+    pool = pgPool(host, user, pass, port!, dbName);
     client = await pool.connect();
-    console.log(`[INFO] Connected to PostgreSQL database "${databaseName}"`);
+    console.log(`[INFO] Connected to PostgreSQL database "${dbName}"`);
 
     const schema: string = await getTableSchema(client);
     console.log(`[INFO] Fetched table schema:\n${schema}`);
@@ -111,16 +143,19 @@ export const getSQLQueryData = async (data: AiQuery): Promise<SQLQueryData> => {
     console.log(`[INFO] Retrieved datasource for project "${projectId}"`);
 
     const { databaseName, databaseUrl, username, password, port } = project;
-    pool = pgPool(
-      base64Decoded(databaseUrl!)!,
-      base64Decoded(username!)!,
-      base64Decoded(password!)!,
-      port!,
-      base64Decoded(databaseName!)!
-    );
+    
+    // שימוש בפונקציה החדשה לפענוח בטוח
+    const host = safeDecrypt(databaseUrl);
+    const user = safeDecrypt(username);
+    const pass = safeDecrypt(password);
+    const dbName = safeDecrypt(databaseName);
+    
+    console.log(`[DEBUG] Connection details - Host: ${host}, User: ${user}, DB: ${dbName}, Port: ${port}`);
+    
+    pool = pgPool(host, user, pass, port!, dbName);
 
     client = await pool.connect();
-    console.log(`[INFO] Connected to DB "${databaseName}"`);
+    console.log(`[INFO] Connected to DB "${dbName}"`);
 
     const schema: string = await getTableSchema(client);
     const message: string = sqlGeneratorPrompt(schema, prompt);
