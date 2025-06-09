@@ -1,4 +1,3 @@
-// Chart data types matching GraphQL schema exactly
 export interface ChartPoint {
   x: number;
   y: number;
@@ -7,27 +6,44 @@ export interface ChartPoint {
 export interface ChartData {
   id: string;
   name: string;
-  type: 'bar' | 'line' | 'pie';
+  type: 'bar' | 'line' | 'pie' | 'doughnut' | 'number' | 'matrix';
   data: ChartPoint[];
   projectId: string;
   createdAt: string;
   updatedAt?: string;
+  matrixData?: {
+    title: string;
+    matrix: (number | string)[][];
+    rowLabels?: string[];
+    columnLabels?: string[];
+  };
 }
 
 export interface CreateChartInput {
   name: string;
-  type: 'bar' | 'line' | 'pie';
+  type: 'bar' | 'line' | 'pie' | 'doughnut' | 'number' | 'matrix';
   data: ChartPoint[];
   projectId: string;
+  matrixData?: {
+    title: string;
+    matrix: (number | string)[][];
+    rowLabels?: string[];
+    columnLabels?: string[];
+  };
 }
 
 export interface UpdateChartInput {
   name?: string;
-  type?: 'bar' | 'line' | 'pie';
+  type?: 'bar' | 'line' | 'pie' | 'doughnut' | 'number' | 'matrix';
   data?: ChartPoint[];
+  matrixData?: {
+    title: string;
+    matrix: (number | string)[][];
+    rowLabels?: string[];
+    columnLabels?: string[];
+  };
 }
 
-// Chart.js specific types for rendering
 export interface ChartJSDataset {
   label?: string;
   data: number[];
@@ -42,9 +58,8 @@ export interface ChartJSData {
   datasets: ChartJSDataset[];
 }
 
-// Form for creating new charts
 export interface NewChartForm {
   name: string;
   prompt: string;
-  type: 'bar' | 'line' | 'pie';
+  type: 'bar' | 'line' | 'pie' | 'doughnut' | 'number' | 'matrix';
 }

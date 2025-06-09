@@ -4,6 +4,12 @@ export const convertAIToChartJS = (chartConfig: any, chartType: string): ChartJS
   const { chart } = chartConfig;
   
   switch (chartType) {
+    case 'number':
+      return { labels: [], datasets: [] };
+      
+    case 'matrix':
+      return { labels: [], datasets: [] };
+      
     case 'bar':
     case 'line':
       return {
@@ -19,6 +25,7 @@ export const convertAIToChartJS = (chartConfig: any, chartType: string): ChartJS
       };
     
     case 'pie':
+    case 'doughnut':
       return {
         labels: chart.data?.map((item: any) => item.segment || item[chart.xAxis]) || [],
         datasets: [{
@@ -34,13 +41,11 @@ export const convertAIToChartJS = (chartConfig: any, chartType: string): ChartJS
   }
 };
 
-/**
- * Convert Chart.js format to GraphQL Point format
- */
+
 export const convertChartJSToGraphQL = (chartJSData: ChartJSData, chartType: string): ChartPoint[] => {
   const points: ChartPoint[] = [];
   
-  if (chartType === 'pie') {
+  if (chartType === 'pie' || chartType === 'doughnut') {
     chartJSData.datasets[0].data.forEach((value: number, index: number) => {
       points.push({ x: index, y: value });
     });
@@ -53,14 +58,18 @@ export const convertChartJSToGraphQL = (chartJSData: ChartJSData, chartType: str
   return points;
 };
 
-/**
- * Convert GraphQL Point format back to Chart.js format
- */
+
 export const convertGraphQLToChartJS = (chart: ChartData): ChartJSData => {
   const labels = chart.data.map((point, index) => `Item ${index + 1}`);
   const data = chart.data.map(point => point.y);
   
   switch (chart.type) {
+    case 'number':
+      return { labels: [], datasets: [] };
+      
+    case 'matrix':
+      return { labels: [], datasets: [] };
+      
     case 'bar':
       return {
         labels,
@@ -86,6 +95,7 @@ export const convertGraphQLToChartJS = (chart: ChartData): ChartJSData => {
       };
     
     case 'pie':
+    case 'doughnut':
       return {
         labels,
         datasets: [{
@@ -101,9 +111,7 @@ export const convertGraphQLToChartJS = (chart: ChartData): ChartJSData => {
   }
 };
 
-/**
- * Export chart data to JSON file
- */
+
 export const exportChart = (chart: ChartData): void => {
   const dataStr = JSON.stringify(chart, null, 2);
   const dataBlob = new Blob([dataStr], { type: 'application/json' });

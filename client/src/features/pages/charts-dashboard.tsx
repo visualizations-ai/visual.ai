@@ -10,7 +10,20 @@ import {
   Sparkles
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useAppSelector } from "../../hooks/redux-hooks";
+import { useAppSelector, useAppDispatch } from "../../hooks/redux-hooks";
+
+import {
+  addChartOptimistic,
+  removeChartOptimistic,
+  setGeneratingChart,
+  clearError as clearChartsError,
+  fetchCharts
+} from "../../store/charts-slice";
+
+import {
+  setSelectedDataSource,
+  fetchDataSources
+} from "../../store/dataSources-slice";
 
 import {
   Chart as ChartJS,
@@ -39,7 +52,6 @@ ChartJS.register(
   Legend
 );
 
-
 interface ChartPoint {
   x: number;
   y: number;
@@ -51,33 +63,26 @@ interface ChartData {
   type: string;
   data: ChartPoint[];
   userId: string;
-}
-
-interface DataSource {
-  id: string;
-  projectId: string;
-  type: string;
-  database: string;
+  matrixData?: {
+    title: string;
+    matrix: (number | string)[][];
+    rowLabels?: string[];
+    columnLabels?: string[];
+  };
 }
 
 interface NewChartForm {
   name: string;
   prompt: string;
-  type: 'bar' | 'line' | 'pie' | 'doughnut';
+  type: 'bar' | 'line' | 'pie' | 'doughnut' | 'number' | 'matrix';
 }
 
-const colors = [
-  'rgba(99, 102, 241, 0.8)',  
-  'rgba(236, 72, 153, 0.8)',   
-  'rgba(34, 197, 94, 0.8)',    
-  'rgba(251, 146, 60, 0.8)',   
-  'rgba(168, 85, 247, 0.8)',   
-  'rgba(14, 165, 233, 0.8)',   
-  'rgba(239, 68, 68, 0.8)',    
-  'rgba(245, 158, 11, 0.8)',   
-];
-
 const samplePrompts = [
+  {
+    type: 'number' as const,
+    prompt: "Show total sales amount for this quarter",
+    icon: "🔢"
+  },
   {
     type: 'bar' as const,
     prompt: "Show me the top 10 customers by total purchase amount",
@@ -97,7 +102,23 @@ const samplePrompts = [
     type: 'doughnut' as const,
     prompt: "Show user distribution by region",
     icon: "🍩"
+  },
+  {
+    type: 'matrix' as const,
+    prompt: "Create sales performance matrix by region and month",
+    icon: "🗂️"
   }
+];
+
+const colors = [
+  'rgba(99, 102, 241, 0.8)',  
+  'rgba(236, 72, 153, 0.8)',   
+  'rgba(34, 197, 94, 0.8)',    
+  'rgba(251, 146, 60, 0.8)',   
+  'rgba(168, 85, 247, 0.8)',   
+  'rgba(14, 165, 233, 0.8)',   
+  'rgba(239, 68, 68, 0.8)',    
+  'rgba(245, 158, 11, 0.8)',   
 ];
 
 const convertGraphQLToChartJS = (chart: ChartData) => {
@@ -154,9 +175,9 @@ const getChartOptions = (type: string, title: string) => {
 };
 
 const DataSourceSelector: React.FC<{
-  selectedDataSource: string;
+  selectedDataSource: string | null;
   onDataSourceChange: (id: string) => void;
-  dataSources: DataSource[];
+  dataSources: any[];
   loading: boolean;
 }> = ({ selectedDataSource, onDataSourceChange, dataSources, loading }) => (
   <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
@@ -165,7 +186,7 @@ const DataSourceSelector: React.FC<{
     </label>
     <div className="relative">
       <select
-        value={selectedDataSource}
+        value={selectedDataSource || ""}
         onChange={(e) => onDataSourceChange(e.target.value)}
         className="w-full p-4 border border-slate-300 rounded-xl bg-white text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent appearance-none shadow-sm"
         disabled={loading}
@@ -182,48 +203,7 @@ const DataSourceSelector: React.FC<{
   </div>
 );
 
-const MOCK_DATA_SOURCES = [
-  {
-    id: "1",
-    projectId: "Project 1",
-    type: "postgresql",
-    database: "Sales DB"
-  },
-  {
-    id: "2",
-    projectId: "Project 2",
-    type: "postgresql",
-    database: "Users DB"
-  }
-];
-
-const MOCK_CHARTS = [
-  {
-    id: "1",
-    name: "Monthly Sales",
-    type: "bar",
-    data: [
-      { x: 0, y: 100 },
-      { x: 1, y: 150 },
-      { x: 2, y: 200 }
-    ],
-    userId: "1"
-  },
-  {
-    id: "2",
-    name: "User Growth",
-    type: "line",
-    data: [
-      { x: 0, y: 50 },
-      { x: 1, y: 75 },
-      { x: 2, y: 90 }
-    ],
-    userId: "1"
-  }
-];
-
 const ChartsDashboard: React.FC = () => {
-  const [selectedDataSource, setSelectedDataSource] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newChart, setNewChart] = useState<NewChartForm>({
     name: '',
@@ -232,82 +212,86 @@ const ChartsDashboard: React.FC = () => {
   });
 
   const { user } = useAppSelector(state => state.auth);
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
-  const loadingDataSources = false;
-  const loadingCharts = false;
-  const dataSourceError: Error | null = null;
-  const chartsError: Error | null = null;
-  const dataSources = MOCK_DATA_SOURCES;
-  const charts = MOCK_CHARTS;
-  const [generatingChart, setGeneratingChart] = useState(false);
+  const { 
+    charts, 
+    loading: loadingCharts, 
+    error: chartsError, 
+    generatingChart 
+  } = useAppSelector(state => state.charts);
+
+  const {
+    dataSources,
+    selectedDataSource,
+    loading: loadingDataSources,
+    error: dataSourceError
+  } = useAppSelector(state => state.dataSources);
 
   useEffect(() => {
     if (!user) {
       navigate('/login');
+    } else {
+      dispatch(fetchCharts(user.id));
+      dispatch(fetchDataSources());
     }
-  }, [user, navigate]);
-
-  useEffect(() => {
-    if (dataSources.length > 0 && !selectedDataSource) {
-      setSelectedDataSource(dataSources[0].id);
-    }
-  }, [dataSources, selectedDataSource]);
-
-  const handleGenerateChart = async () => {
-    if (!newChart.name.trim() || !newChart.prompt.trim() || !selectedDataSource) {
-      alert("Please fill in all fields");
-      return;
-    }
-
-    try {
-      const selectedDS = dataSources.find(ds => ds.id === selectedDataSource);
-      if (!selectedDS) {
-        alert("Please select a valid data source");
-        return;
-      }
-
-      console.log("Generating chart with AI...");
-      setGeneratingChart(true);
-      
-      setTimeout(() => {
-        const newMockChart = {
-          id: String(charts.length + 1),
-          name: newChart.name,
-          type: newChart.type,
-          data: [
-            { x: 0, y: Math.random() * 100 },
-            { x: 1, y: Math.random() * 100 },
-            { x: 2, y: Math.random() * 100 }
-          ],
-          userId: "1"
-        };
-        charts.push(newMockChart);
-        setIsCreateModalOpen(false);
-        setGeneratingChart(false);
-        alert("Chart created successfully!");
-      }, 1500);
-
-    } catch (error: any) {
-      console.error("Failed to generate chart:", error);
-      alert(`Failed to generate chart: ${error.message}`);
-    } finally {
-      setGeneratingChart(false);
-    }
-  };
-
-  const handleDeleteChart = async (chartId: string) => {
-    if (!confirm("Are you sure you want to delete this chart?")) return;
-
-    const index = charts.findIndex(c => c.id === chartId);
-    if (index > -1) {
-      charts.splice(index, 1);
-      alert("Chart deleted successfully!");
-    }
-  };
+  }, [user, navigate, dispatch]);
 
   const renderChart = (chart: ChartData) => {
     try {
+      if (chart.type === 'number') {
+        const value = chart.data[0]?.y || 0;
+        return (
+          <div className="flex flex-col items-center justify-center h-full">
+            <div className="text-6xl font-bold text-indigo-600 mb-4">
+              {value.toLocaleString()}
+            </div>
+            <div className="text-lg text-gray-600 text-center">
+              {chart.name}
+            </div>
+          </div>
+        );
+      }
+      
+      if (chart.type === 'matrix' && chart.matrixData) {
+        const { matrix, rowLabels, columnLabels, title } = chart.matrixData;
+        
+        return (
+          <div className="h-full p-4">
+            <h3 className="text-lg font-semibold mb-4 text-center">{title}</h3>
+            <div className="overflow-auto h-full">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="border p-2 bg-gray-100"></th>
+                    {columnLabels?.map((label: string, index: number) => (
+                      <th key={index} className="border p-2 bg-gray-100 font-medium">
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {matrix?.map((row: (number | string)[], rowIndex: number) => (
+                    <tr key={rowIndex}>
+                      <td className="border p-2 bg-gray-50 font-medium">
+                        {rowLabels?.[rowIndex] || `Row ${rowIndex + 1}`}
+                      </td>
+                      {row.map((cell: number | string, cellIndex: number) => (
+                        <td key={cellIndex} className="border p-2 text-center">
+                          {typeof cell === 'number' ? cell.toLocaleString() : cell}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      }
+      
       const chartJSData = convertGraphQLToChartJS(chart);
       const options = getChartOptions(chart.type, chart.name);
       
@@ -333,6 +317,82 @@ const ChartsDashboard: React.FC = () => {
           </div>
         </div>
       );
+    }
+  };
+
+  const handleGenerateChart = async () => {
+    if (!newChart.name.trim() || !newChart.prompt.trim() || !selectedDataSource) {
+      alert("Please fill in all fields");
+      return;
+    }
+
+    try {
+      const selectedDS = dataSources.find(ds => ds.id === selectedDataSource);
+      if (!selectedDS) {
+        alert("Please select a valid data source");
+        return;
+      }
+
+      console.log("Generating chart with AI...");
+      dispatch(setGeneratingChart(true));
+      
+      setTimeout(() => {
+        const newId = String(Date.now());
+        
+        let newMockChart: ChartData = {
+          id: newId,
+          name: newChart.name,
+          type: newChart.type,
+          userId: user?.id || "1",
+          data: []
+        };
+
+        if (newChart.type === 'number') {
+          newMockChart.data = [{ x: 0, y: Math.floor(Math.random() * 1000000) }];
+        } else if (newChart.type === 'matrix') {
+          newMockChart.data = [];
+          newMockChart.matrixData = {
+            title: newChart.name,
+            matrix: [
+              [Math.floor(Math.random() * 100), Math.floor(Math.random() * 100), Math.floor(Math.random() * 100)],
+              [Math.floor(Math.random() * 100), Math.floor(Math.random() * 100), Math.floor(Math.random() * 100)],
+              [Math.floor(Math.random() * 100), Math.floor(Math.random() * 100), Math.floor(Math.random() * 100)]
+            ],
+            rowLabels: ["Row 1", "Row 2", "Row 3"],
+            columnLabels: ["Col A", "Col B", "Col C"]
+          };
+        } else {
+          newMockChart.data = [
+            { x: 0, y: Math.random() * 100 },
+            { x: 1, y: Math.random() * 100 },
+            { x: 2, y: Math.random() * 100 }
+          ];
+        }
+
+        dispatch(addChartOptimistic(newMockChart));
+        dispatch(setGeneratingChart(false));
+        
+        setIsCreateModalOpen(false);
+        setNewChart({ name: '', prompt: '', type: 'bar' });
+        alert("Chart created successfully!");
+      }, 1500);
+
+    } catch (error: any) {
+      console.error("Failed to generate chart:", error);
+      dispatch(setGeneratingChart(false));
+      alert(`Failed to generate chart: ${error.message}`);
+    }
+  };
+
+  const handleDeleteChart = async (chartId: string) => {
+    if (!confirm("Are you sure you want to delete this chart?")) return;
+
+    try {
+      dispatch(removeChartOptimistic(chartId));
+      alert("Chart deleted successfully!");
+    } catch (error: any) {
+      console.error("Failed to delete chart:", error);
+      alert(`Failed to delete chart: ${error.message}`);
     }
   };
 
@@ -367,7 +427,7 @@ const ChartsDashboard: React.FC = () => {
             <h2 className="text-lg font-semibold text-red-700">Error Loading</h2>
           </div>
           <p className="text-sm text-red-600 mb-4">
-            {dataSourceError?.message || chartsError?.message}
+            {dataSourceError || chartsError}
           </p>
           <button 
             onClick={() => window.location.reload()}
@@ -401,7 +461,7 @@ const ChartsDashboard: React.FC = () => {
         <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
           <DataSourceSelector
             selectedDataSource={selectedDataSource}
-            onDataSourceChange={setSelectedDataSource}
+            onDataSourceChange={(id) => dispatch(setSelectedDataSource(id))}
             dataSources={dataSources}
             loading={loadingDataSources}
           />
@@ -444,12 +504,14 @@ const ChartsDashboard: React.FC = () => {
                         <button
                           onClick={() => exportChart(chart)}
                           className="p-2 text-slate-400 hover:text-indigo-600 rounded-lg"
+                          title="Export chart"
                         >
                           <Download className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteChart(chart.id)}
                           className="p-2 text-slate-400 hover:text-red-600 rounded-lg"
+                          title="Delete chart"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -497,10 +559,12 @@ const ChartsDashboard: React.FC = () => {
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   {[
+                    { value: 'number', label: '🔢 Number Display' },
                     { value: 'bar', label: '📊 Bar Chart' },
                     { value: 'line', label: '📈 Line Chart' },
                     { value: 'pie', label: '🥧 Pie Chart' },
-                    { value: 'doughnut', label: '🍩 Doughnut Chart' }
+                    { value: 'doughnut', label: '🍩 Doughnut Chart' },
+                    { value: 'matrix', label: '🗂️ Matrix/Table' }
                   ].map((type) => (
                     <label key={type.value} className="cursor-pointer">
                       <input
