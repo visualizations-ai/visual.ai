@@ -1,4 +1,3 @@
-// client/src/features/pages/sql-editor.tsx
 import React, { useState, useRef, useEffect } from "react";
 import { 
   Database, 

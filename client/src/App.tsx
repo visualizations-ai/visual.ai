@@ -6,6 +6,7 @@ import Register from "./features/auth/register";
 import { HomePage } from "./features/pages/home-page";
 import ChartsDashboard from "./features/pages/charts-dashboard";
 import { LandingPage } from "./features/pages/landing-page";
+import  SettingsPage  from "./features/pages/SettingsPage";
 import ProtectedRoute from "./shared/⁠protectedRoutes";
 import DataSources from "./features/pages/data-sources";
 import SqlEditor from "./features/pages/sql-editor";
@@ -53,7 +54,6 @@ function App() {
     </ProtectedRoute>
   }
 />
-            {/* Future routes */}
             <Route
               path="/purchase-recommendations"
               element={
@@ -76,6 +76,15 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+  path="/settings"
+  element={
+    <ProtectedRoute>
+      <SettingsPage />
+    </ProtectedRoute>
+  }
+/>
+
             <Route
               path="/settings"
               element={

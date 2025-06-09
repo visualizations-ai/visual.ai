@@ -23,7 +23,6 @@ const initialState: DataSourcesState = {
   error: null
 };
 
-// פונקציות עזר ל-localStorage
 const getDataSourcesFromStorage = (userId: string) => {
   try {
     const storedData = localStorage.getItem(`dataSources_${userId}`);
@@ -33,14 +32,13 @@ const getDataSourcesFromStorage = (userId: string) => {
       const meta = JSON.parse(storedMeta);
       const data = JSON.parse(storedData);
       
-      // בדיקה אם הדאטא לא ישן מדי (24 שעות)
       const isDataFresh = (Date.now() - meta.lastUpdated) < (24 * 60 * 60 * 1000);
       
       if (isDataFresh) {
-        console.log(`📦 Redux: Loading ${data.length} data sources from localStorage`);
+        console.log(` Redux: Loading ${data.length} data sources from localStorage`);
         return { data, isFresh: true };
       } else {
-        console.log('🕒 Redux: Local data is stale, will fetch from server');
+        console.log(' Redux: Local data is stale, will fetch from server');
         return { data: null, isFresh: false };
       }
     }
@@ -57,7 +55,7 @@ const saveDataSourcesToStorage = (userId: string, dataSources: DataSource[]) => 
       lastUpdated: Date.now(),
       count: dataSources.length
     }));
-    console.log(`💾 Redux: Saved ${dataSources.length} data sources to localStorage`);
+    console.log(` Redux: Saved ${dataSources.length} data sources to localStorage`);
   } catch (error) {
     console.error("Redux: Error saving to localStorage:", error);
   }
@@ -67,7 +65,6 @@ export const fetchDataSources = createAsyncThunk(
   'dataSources/fetchDataSources',
   async (_, thunkAPI) => {
     try {
-      // קבלת userId מה-state
       const state = thunkAPI.getState() as any;
       const userId = state.auth.user?.id;
       
@@ -75,24 +72,23 @@ export const fetchDataSources = createAsyncThunk(
         throw new Error('User not authenticated');
       }
 
-      // תחילה נבדוק אם יש דאטא טרי ב-localStorage
       const { data: localData, isFresh } = getDataSourcesFromStorage(userId);
       
       if (localData && isFresh) {
-        console.log('✅ Redux: Using fresh data from localStorage');
+        console.log(' Redux: Using fresh data from localStorage');
         return localData;
       }
 
-      // אם אין דאטא טרי, נלך לשרת
-      console.log('🌐 Redux: Fetching fresh data from server');
+     
+      console.log(' Redux: Fetching fresh data from server');
       const response = await client.query({
         query: GET_DATA_SOURCES,
-        fetchPolicy: 'network-only' // תמיד נלך לשרת במקרה הזה
+        fetchPolicy: 'network-only' 
       });
       
       const serverData = response.data.getDataSources?.dataSource || [];
       
-      // שמירה ב-localStorage
+
       saveDataSourcesToStorage(userId, serverData);
       
       return serverData;
@@ -117,7 +113,6 @@ export const createDataSource = createAsyncThunk(
       
       const newDataSources = response.data.createPostgresqlDataSource?.dataSource || [];
       
-      // עדכון localStorage
       if (userId) {
         saveDataSourcesToStorage(userId, newDataSources);
       }
@@ -142,7 +137,6 @@ export const deleteDataSource = createAsyncThunk(
         refetchQueries: [{ query: GET_DATA_SOURCES }]
       });
       
-      // עדכון localStorage - הסרת הפריט שנמחק
       if (userId) {
         const currentDataSources = state.dataSources.dataSources.filter(
           (ds: DataSource) => ds.id !== dataSourceId
@@ -195,7 +189,6 @@ const dataSourcesSlice = createSlice({
       state.error = null;
     },
 
-    // פעולה חדשה לטעינה מ-localStorage בלבד
     loadFromLocalStorage: (state, action: PayloadAction<{ userId: string }>) => {
       const { userId } = action.payload;
       const { data: localData } = getDataSourcesFromStorage(userId);
@@ -205,7 +198,7 @@ const dataSourcesSlice = createSlice({
         if (!state.selectedDataSource && localData.length > 0) {
           state.selectedDataSource = localData[0].id;
         }
-        console.log(`📦 Redux: Loaded ${localData.length} data sources from localStorage`);
+        console.log(` Redux: Loaded ${localData.length} data sources from localStorage`);
       }
     }
   },

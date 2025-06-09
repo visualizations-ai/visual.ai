@@ -25,6 +25,12 @@ export const sidebarIcons: IconProps[] = [
     icon: <Code size={24} />,
     path: "/sql-editor"
   },
+  {
+  label: "settings",
+  icon: <Settings size={24} />,
+  path: "/settings"
+},
+
   { 
     label: "charts", 
     icon: <BarChart3 size={24} />,
