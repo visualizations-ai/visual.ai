@@ -23,16 +23,79 @@ const initialState: DataSourcesState = {
   error: null
 };
 
+// פונקציות עזר ל-localStorage
+const getDataSourcesFromStorage = (userId: string) => {
+  try {
+    const storedData = localStorage.getItem(`dataSources_${userId}`);
+    const storedMeta = localStorage.getItem(`dataSourcesMeta_${userId}`);
+    
+    if (storedData && storedMeta) {
+      const meta = JSON.parse(storedMeta);
+      const data = JSON.parse(storedData);
+      
+      // בדיקה אם הדאטא לא ישן מדי (24 שעות)
+      const isDataFresh = (Date.now() - meta.lastUpdated) < (24 * 60 * 60 * 1000);
+      
+      if (isDataFresh) {
+        console.log(`📦 Redux: Loading ${data.length} data sources from localStorage`);
+        return { data, isFresh: true };
+      } else {
+        console.log('🕒 Redux: Local data is stale, will fetch from server');
+        return { data: null, isFresh: false };
+      }
+    }
+  } catch (error) {
+    console.error("Redux: Error reading from localStorage:", error);
+  }
+  return { data: null, isFresh: false };
+};
+
+const saveDataSourcesToStorage = (userId: string, dataSources: DataSource[]) => {
+  try {
+    localStorage.setItem(`dataSources_${userId}`, JSON.stringify(dataSources));
+    localStorage.setItem(`dataSourcesMeta_${userId}`, JSON.stringify({
+      lastUpdated: Date.now(),
+      count: dataSources.length
+    }));
+    console.log(`💾 Redux: Saved ${dataSources.length} data sources to localStorage`);
+  } catch (error) {
+    console.error("Redux: Error saving to localStorage:", error);
+  }
+};
+
 export const fetchDataSources = createAsyncThunk(
   'dataSources/fetchDataSources',
   async (_, thunkAPI) => {
     try {
+      // קבלת userId מה-state
+      const state = thunkAPI.getState() as any;
+      const userId = state.auth.user?.id;
+      
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      // תחילה נבדוק אם יש דאטא טרי ב-localStorage
+      const { data: localData, isFresh } = getDataSourcesFromStorage(userId);
+      
+      if (localData && isFresh) {
+        console.log('✅ Redux: Using fresh data from localStorage');
+        return localData;
+      }
+
+      // אם אין דאטא טרי, נלך לשרת
+      console.log('🌐 Redux: Fetching fresh data from server');
       const response = await client.query({
         query: GET_DATA_SOURCES,
-        fetchPolicy: 'cache-and-network'
+        fetchPolicy: 'network-only' // תמיד נלך לשרת במקרה הזה
       });
       
-      return response.data.getDataSources?.dataSource || [];
+      const serverData = response.data.getDataSources?.dataSource || [];
+      
+      // שמירה ב-localStorage
+      saveDataSourcesToStorage(userId, serverData);
+      
+      return serverData;
     } catch (error: any) {
       return thunkAPI.rejectWithValue(error.message);
     }
@@ -43,13 +106,23 @@ export const createDataSource = createAsyncThunk(
   'dataSources/createDataSource',
   async (dataSourceData: any, thunkAPI) => {
     try {
+      const state = thunkAPI.getState() as any;
+      const userId = state.auth.user?.id;
+
       const response = await client.mutate({
         mutation: CREATE_DATASOURCE,
         variables: { source: dataSourceData },
         refetchQueries: [{ query: GET_DATA_SOURCES }]
       });
       
-      return response.data.createPostgresqlDataSource?.dataSource || [];
+      const newDataSources = response.data.createPostgresqlDataSource?.dataSource || [];
+      
+      // עדכון localStorage
+      if (userId) {
+        saveDataSourcesToStorage(userId, newDataSources);
+      }
+      
+      return newDataSources;
     } catch (error: any) {
       return thunkAPI.rejectWithValue(error.message);
     }
@@ -60,11 +133,22 @@ export const deleteDataSource = createAsyncThunk(
   'dataSources/deleteDataSource',
   async (dataSourceId: string, thunkAPI) => {
     try {
+      const state = thunkAPI.getState() as any;
+      const userId = state.auth.user?.id;
+
       await client.mutate({
         mutation: DELETE_DATASOURCE,
         variables: { datasourceId: dataSourceId },
         refetchQueries: [{ query: GET_DATA_SOURCES }]
       });
+      
+      // עדכון localStorage - הסרת הפריט שנמחק
+      if (userId) {
+        const currentDataSources = state.dataSources.dataSources.filter(
+          (ds: DataSource) => ds.id !== dataSourceId
+        );
+        saveDataSourcesToStorage(userId, currentDataSources);
+      }
       
       return dataSourceId;
     } catch (error: any) {
@@ -109,6 +193,20 @@ const dataSourcesSlice = createSlice({
       state.selectedDataSource = null;
       state.loading = false;
       state.error = null;
+    },
+
+    // פעולה חדשה לטעינה מ-localStorage בלבד
+    loadFromLocalStorage: (state, action: PayloadAction<{ userId: string }>) => {
+      const { userId } = action.payload;
+      const { data: localData } = getDataSourcesFromStorage(userId);
+      
+      if (localData) {
+        state.dataSources = localData;
+        if (!state.selectedDataSource && localData.length > 0) {
+          state.selectedDataSource = localData[0].id;
+        }
+        console.log(`📦 Redux: Loaded ${localData.length} data sources from localStorage`);
+      }
     }
   },
   extraReducers: (builder) => {
@@ -171,7 +269,8 @@ export const {
   removeDataSourceOptimistic,
   updateDataSourceOptimistic,
   clearError,
-  resetDataSources
+  resetDataSources,
+  loadFromLocalStorage
 } = dataSourcesSlice.actions;
 
 export default dataSourcesSlice.reducer;
