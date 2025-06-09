@@ -10,20 +10,9 @@ import {
   Sparkles
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useAppSelector, useAppDispatch } from "../../hooks/redux-hooks";
-
-import {
-  addChartOptimistic,
-  removeChartOptimistic,
-  setGeneratingChart,
-  clearError as clearChartsError,
-  fetchCharts
-} from "../../store/charts-slice";
-
-import {
-  setSelectedDataSource,
-  fetchDataSources
-} from "../../store/dataSources-slice";
+import { useAppSelector } from "../../hooks/redux-hooks";
+import { useQuery } from "@apollo/client";
+import { GET_DATA_SOURCES } from "../../graphql/data-sources";
 
 import {
   Chart as ChartJS,
@@ -76,6 +65,39 @@ interface NewChartForm {
   prompt: string;
   type: 'bar' | 'line' | 'pie' | 'doughnut' | 'number' | 'matrix';
 }
+
+// Mock data - replace with real data later
+const MOCK_CHARTS: ChartData[] = [
+  {
+    id: "1",
+    name: "Total Sales",
+    type: "number",
+    data: [{ x: 0, y: 1250000 }],
+    userId: "1"
+  },
+  {
+    id: "2",
+    name: "Monthly Sales",
+    type: "bar",
+    data: [
+      { x: 0, y: 100 },
+      { x: 1, y: 150 },
+      { x: 2, y: 200 }
+    ],
+    userId: "1"
+  },
+  {
+    id: "3",
+    name: "User Growth",
+    type: "line",
+    data: [
+      { x: 0, y: 50 },
+      { x: 1, y: 75 },
+      { x: 2, y: 90 }
+    ],
+    userId: "1"
+  }
+];
 
 const samplePrompts = [
   {
@@ -205,6 +227,9 @@ const DataSourceSelector: React.FC<{
 
 const ChartsDashboard: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [selectedDataSource, setSelectedDataSource] = useState<string | null>(null);
+  const [charts, setCharts] = useState<ChartData[]>(MOCK_CHARTS);
+  const [generatingChart, setGeneratingChart] = useState(false);
   const [newChart, setNewChart] = useState<NewChartForm>({
     name: '',
     prompt: '',
@@ -212,31 +237,26 @@ const ChartsDashboard: React.FC = () => {
   });
 
   const { user } = useAppSelector(state => state.auth);
-  const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
-  const { 
-    charts, 
-    loading: loadingCharts, 
-    error: chartsError, 
-    generatingChart 
-  } = useAppSelector(state => state.charts);
+  // טעינת Data Sources מ-GraphQL
+  const { data: dataSourcesData, loading: loadingDataSources } = useQuery(GET_DATA_SOURCES, {
+    errorPolicy: 'all',
+  });
 
-  const {
-    dataSources,
-    selectedDataSource,
-    loading: loadingDataSources,
-    error: dataSourceError
-  } = useAppSelector(state => state.dataSources);
+  const dataSources = dataSourcesData?.getDataSources?.dataSource || [];
 
   useEffect(() => {
     if (!user) {
       navigate('/login');
-    } else {
-      dispatch(fetchCharts(user.id));
-      dispatch(fetchDataSources());
     }
-  }, [user, navigate, dispatch]);
+  }, [user, navigate]);
+
+  useEffect(() => {
+    if (dataSources.length > 0 && !selectedDataSource) {
+      setSelectedDataSource(dataSources[0].id);
+    }
+  }, [dataSources, selectedDataSource]);
 
   const renderChart = (chart: ChartData) => {
     try {
@@ -322,20 +342,15 @@ const ChartsDashboard: React.FC = () => {
 
   const handleGenerateChart = async () => {
     if (!newChart.name.trim() || !newChart.prompt.trim() || !selectedDataSource) {
-      alert("Please fill in all fields");
+      alert("Please fill in all fields and select a data source");
       return;
     }
 
     try {
-      const selectedDS = dataSources.find(ds => ds.id === selectedDataSource);
-      if (!selectedDS) {
-        alert("Please select a valid data source");
-        return;
-      }
-
       console.log("Generating chart with AI...");
-      dispatch(setGeneratingChart(true));
+      setGeneratingChart(true);
       
+      // Simulate chart generation with mock data
       setTimeout(() => {
         const newId = String(Date.now());
         
@@ -369,8 +384,8 @@ const ChartsDashboard: React.FC = () => {
           ];
         }
 
-        dispatch(addChartOptimistic(newMockChart));
-        dispatch(setGeneratingChart(false));
+        setCharts(prev => [...prev, newMockChart]);
+        setGeneratingChart(false);
         
         setIsCreateModalOpen(false);
         setNewChart({ name: '', prompt: '', type: 'bar' });
@@ -379,7 +394,7 @@ const ChartsDashboard: React.FC = () => {
 
     } catch (error: any) {
       console.error("Failed to generate chart:", error);
-      dispatch(setGeneratingChart(false));
+      setGeneratingChart(false);
       alert(`Failed to generate chart: ${error.message}`);
     }
   };
@@ -388,7 +403,7 @@ const ChartsDashboard: React.FC = () => {
     if (!confirm("Are you sure you want to delete this chart?")) return;
 
     try {
-      dispatch(removeChartOptimistic(chartId));
+      setCharts(prev => prev.filter(chart => chart.id !== chartId));
       alert("Chart deleted successfully!");
     } catch (error: any) {
       console.error("Failed to delete chart:", error);
@@ -418,28 +433,6 @@ const ChartsDashboard: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  if (dataSourceError || chartsError) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-indigo-50 to-slate-100">
-        <div className="bg-white p-8 rounded-xl shadow-lg max-w-md w-full">
-          <div className="flex items-center mb-4">
-            <AlertTriangle className="text-red-500 mr-3" size={24} />
-            <h2 className="text-lg font-semibold text-red-700">Error Loading</h2>
-          </div>
-          <p className="text-sm text-red-600 mb-4">
-            {dataSourceError || chartsError}
-          </p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors"
-          >
-            Reload Page
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   const headerActions = (
     <button
       onClick={() => setIsCreateModalOpen(true)}
@@ -461,17 +454,12 @@ const ChartsDashboard: React.FC = () => {
         <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
           <DataSourceSelector
             selectedDataSource={selectedDataSource}
-            onDataSourceChange={(id) => dispatch(setSelectedDataSource(id))}
+            onDataSourceChange={setSelectedDataSource}
             dataSources={dataSources}
             loading={loadingDataSources}
           />
 
-          {loadingCharts ? (
-            <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-              <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-              <p className="text-slate-500">Loading charts...</p>
-            </div>
-          ) : charts.length === 0 ? (
+          {charts.length === 0 ? (
             <div className="bg-white rounded-xl shadow-sm p-12 text-center">
               <div className="bg-gradient-to-br from-indigo-500 to-purple-600 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6">
                 <BarChart3 className="text-white" size={40} />
@@ -528,6 +516,7 @@ const ChartsDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Create Chart Modal */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
