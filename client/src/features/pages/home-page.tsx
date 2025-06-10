@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { AppLayout } from "../../shared/app-layout";
 import { MessageSquare, Send, Loader2 } from "lucide-react";
-import { useAppSelector } from "../../hooks/redux-hooks";
 import { useQuery } from "@apollo/client";
 import { GET_DATA_SOURCES } from "../../graphql/data-sources";
 
@@ -15,28 +14,22 @@ export const HomePage = () => {
   const [selectedDataSource, setSelectedDataSource] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const { user } = useAppSelector(state => state.auth);
-  
-  // טעינת Data Sources
   const { data: dataSourcesData } = useQuery(GET_DATA_SOURCES, {
     errorPolicy: 'all',
   });
   const dataSources = dataSourcesData?.getDataSources?.dataSource || [];
 
-  // בחירה אוטומטית של data source ראשון
   useEffect(() => {
     if (dataSources.length > 0 && !selectedDataSource) {
       setSelectedDataSource(dataSources[0].id);
     }
   }, [dataSources, selectedDataSource]);
 
-  // ניקוי צ'אט
   const clearChat = () => {
     setMessages([]);
     setInput("");
   };
 
-  // ניקוי אוטומטי כשמגיעים מסיידבר
   useEffect(() => {
     if (location.state?.clearChat) {
       clearChat();
@@ -87,13 +80,11 @@ export const HomePage = () => {
     const progressInterval = simulateProgress();
 
     try {
-      // מוצא את projectId של הdata source הנבחר
       const selectedDS = dataSources.find(ds => ds.id === selectedDataSource);
       if (!selectedDS) {
         throw new Error("Selected data source not found");
       }
 
-      // שולח ישירות ל-GraphQL endpoint עם fetch
       const response = await fetch('http://localhost:3000/api/v1/graphql', {
         method: 'POST',
         headers: { 
@@ -134,7 +125,6 @@ export const HomePage = () => {
           if (result.result && result.result.length > 0) {
             answer = `I found ${result.result.length} result${result.result.length === 1 ? '' : 's'} for your question.\n\n`;
             
-            // מציג עד 3 תוצאות ראשונות
             const showResults = result.result.slice(0, 3);
             showResults.forEach((row: any, index: number) => {
               answer += `${index + 1}. `;
@@ -218,7 +208,6 @@ export const HomePage = () => {
       )}
 
       <div className="h-full flex flex-col bg-gradient-to-b from-indigo-50/90 to-slate-50/90">
-        {/* בחירת Data Source */}
         {dataSources.length > 0 && (
           <div className="p-4 bg-white border-b border-slate-200">
             <div className="max-w-4xl mx-auto">

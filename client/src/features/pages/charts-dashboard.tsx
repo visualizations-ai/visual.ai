@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { AppLayout } from "../../shared/app-layout";
 import { 
   BarChart3, 
@@ -11,8 +11,14 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAppSelector } from "../../hooks/redux-hooks";
-import { useQuery } from "@apollo/client";
+import { useMutation, useQuery } from "@apollo/client";
 import { GET_DATA_SOURCES } from "../../graphql/data-sources";
+import {  GENERATE_CHART_QUERY,
+  GET_CHARTS_QUERY,
+  GET_CHART_QUERY,
+  CREATE_CHART_MUTATION,
+  UPDATE_CHART_MUTATION,
+  DELETE_CHART_MUTATION} from "../../graphql/charts";
 
 import {
   Chart as ChartJS,
@@ -64,7 +70,7 @@ interface ChartData {
 interface NewChartForm {
   name: string;
   prompt: string;
-  type: 'bar' | 'line' | 'pie' | 'doughnut' | 'number' | 'matrix';
+  type: 'bar' | 'line' | 'pie' | 'number' | 'matrix';
 }
 
 const colors = [
@@ -174,12 +180,11 @@ const ChartsDashboard: React.FC = () => {
   const { user } = useAppSelector(state => state.auth);
   const navigate = useNavigate();
 
-  // טעינת Data Sources מ-GraphQL
   const { data: dataSourcesData, loading: loadingDataSources } = useQuery(GET_DATA_SOURCES, {
     errorPolicy: 'all',
   });
 
-  const dataSources = dataSourcesData?.getDataSources?.dataSource || [];
+  const dataSources = useMemo(() => dataSourcesData?.getDataSources?.dataSource || [], [dataSourcesData]);
 
   useEffect(() => {
     if (!user) {
@@ -275,126 +280,106 @@ const ChartsDashboard: React.FC = () => {
     }
   };
 
-  const handleGenerateChart = async () => {
-    if (!newChart.name.trim() || !newChart.prompt.trim() || !selectedDataSource) {
-      alert("Please fill in all fields and select a data source");
-      return;
+const [generateChartMutation] = useMutation(GENERATE_CHART_QUERY);
+const [createChartMutation] = useMutation(CREATE_CHART_MUTATION);
+
+ const handleGenerateChart = async () => {
+  if (!newChart.name.trim() || !newChart.prompt.trim() || !selectedDataSource) {
+    alert("Please fill in all fields and select a data source");
+    return;
+  }
+
+  try {
+    console.log("Generating chart with AI...");
+    setGeneratingChart(true);
+    
+    const selectedDS = dataSources.find(ds => ds.id === selectedDataSource);
+    if (!selectedDS) {
+      throw new Error("Selected data source not found");
     }
 
-    try {
-      console.log("Generating chart with AI...");
-      setGeneratingChart(true);
-      
-      // מוצא את projectId של הdata source הנבחר
-      const selectedDS = dataSources.find(ds => ds.id === selectedDataSource);
-      if (!selectedDS) {
-        throw new Error("Selected data source not found");
-      }
-
-      // שולח ל-AI לייצור גרף
-      const response = await fetch('http://localhost:3000/api/v1/graphql', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          query: `
-            query GenerateChart($info: AiChartQuery!) {
-              generateChart(info: $info)
-            }
-          `,
-          variables: {
-            info: {
-              projectId: selectedDS.projectId,
-              userPrompt: newChart.prompt,
-              chartType: newChart.type
-            }
-          }
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (data.errors) {
-        throw new Error(data.errors[0]?.message || 'Chart generation failed');
-      }
-
-      if (data.data?.generateChart) {
-        try {
-          const result = JSON.parse(data.data.generateChart);
-          console.log('AI Chart Result:', result);
-          
-          // יצירת גרף חדש מהתוצאה של ה-AI
-          const newId = String(Date.now());
-          let newAIChart: ChartData = {
-            id: newId,
-            name: newChart.name,
-            type: newChart.type,
-            userId: user?.id || "1",
-            data: [],
-            createdAt: new Date().toISOString()
-          };
-
-          // עיבוד התוצאה מה-AI לפי סוג הגרף
-          if (newChart.type === 'number') {
-            // עבור גרף מספר - נקח הערך הראשון מהתוצאות
-            if (result.queryResult && result.queryResult.length > 0) {
-              const firstRow = result.queryResult[0];
-              const firstValue = Object.values(firstRow)[0] as number;
-              newAIChart.data = [{ x: 0, y: firstValue || 0 }];
-            }
-          } else if (newChart.type === 'matrix') {
-            // עבור מטריצה - נמיר את התוצאות למטריצה
-            if (result.queryResult && result.queryResult.length > 0) {
-              const columns = Object.keys(result.queryResult[0]);
-              const matrix = result.queryResult.map((row: any) => Object.values(row));
-              
-              newAIChart.data = [];
-              newAIChart.matrixData = {
-                title: newChart.name,
-                matrix: matrix,
-                rowLabels: result.queryResult.map((_: any, index: number) => `Row ${index + 1}`),
-                columnLabels: columns
-              };
-            }
-          } else {
-            // עבור גרפים רגילים (bar, line, pie, doughnut)
-            if (result.queryResult && result.queryResult.length > 0) {
-              newAIChart.data = result.queryResult.map((row: any, index: number) => {
-                const values = Object.values(row);
-                const yValue = typeof values[0] === 'number' ? values[0] : 
-                              typeof values[1] === 'number' ? values[1] : 
-                              Math.random() * 100; // fallback
-                return { x: index, y: yValue };
-              });
-            }
-          }
-
-          setCharts(prev => [...prev, newAIChart]);
-          setGeneratingChart(false);
-          setIsCreateModalOpen(false);
-          setNewChart({ name: '', prompt: '', type: 'bar' });
-          
-          alert("Chart created successfully with AI!");
-        } catch (parseError) {
-          console.error('Error parsing AI response:', parseError);
-          throw new Error('Failed to parse AI response');
+    const { data } = await generateChartMutation({
+      variables: {
+        info: {
+          projectId: selectedDS.projectId,
+          userPrompt: newChart.prompt,
+          chartType: newChart.type
         }
-      } else {
-        throw new Error('No chart data received from AI');
       }
+    });
 
-    } catch (error: any) {
-      console.error("Failed to generate chart:", error);
-      setGeneratingChart(false);
-      alert(`Failed to generate chart: ${error.message}`);
+    if (data?.generateChart) {
+      try {
+        const result = JSON.parse(data.generateChart);
+        console.log('AI Chart Result:', result);
+        
+        const newId = String(Date.now());
+        const newAIChart: ChartData = {
+          id: newId,
+          name: newChart.name,
+          type: newChart.type,
+          userId: user?.id || "1",
+          data: [],
+          createdAt: new Date().toISOString()
+        };
+
+        if (newChart.type === 'number') {
+          if (result.queryResult && result.queryResult.length > 0) {
+            const firstRow = result.queryResult[0];
+            const firstValue = Object.values(firstRow)[0] as number;
+            newAIChart.data = [{ x: 0, y: firstValue || 0 }];
+          }
+        } else if (newChart.type === 'matrix') {
+          if (result.queryResult && result.queryResult.length > 0) {
+            const columns = Object.keys(result.queryResult[0]);
+            const matrix = result.queryResult.map((row: any) => Object.values(row));
+            
+            newAIChart.data = [];
+            newAIChart.matrixData = {
+              title: newChart.name,
+              matrix: matrix,
+              rowLabels: result.queryResult.map((_: any, index: number) => `Row ${index + 1}`),
+              columnLabels: columns
+            };
+          }
+        } else {
+          if (result.queryResult && result.queryResult.length > 0) {
+            newAIChart.data = result.queryResult.map((row: any, index: number) => {
+              const values = Object.values(row);
+              const yValue = typeof values[0] === 'number' ? values[0] : 
+                           typeof values[1] === 'number' ? values[1] : 
+                           Math.random() * 100;
+              return { x: index, y: yValue };
+            });
+          }
+        }
+
+        await createChartMutation({
+          variables: {
+            input: newAIChart
+          }
+        });
+
+        setCharts(prev => [...prev, newAIChart]);
+        setGeneratingChart(false);
+        setIsCreateModalOpen(false);
+        setNewChart({ name: '', prompt: '', type: 'bar' });
+        
+        alert("Chart created successfully with AI!");
+      } catch (parseError) {
+        console.error('Error parsing AI response:', parseError);
+        throw new Error('Failed to parse AI response');
+      }
+    } else {
+      throw new Error('No chart data received from AI');
     }
-  };
+
+  } catch (error: any) {
+    console.error("Failed to generate chart:", error);
+    setGeneratingChart(false);
+    alert(`Failed to generate chart: ${error.message}`);
+  }
+};
 
   const handleDeleteChart = async (chartId: string) => {
     if (!confirm("Are you sure you want to delete this chart?")) return;
@@ -451,11 +436,7 @@ const ChartsDashboard: React.FC = () => {
       prompt: "Break down revenue by product category",
       icon: "🥧"
     },
-    {
-      type: 'doughnut' as const,
-      prompt: "Show user distribution by region",
-      icon: "🍩"
-    },
+ 
     {
       type: 'matrix' as const,
       prompt: "Create sales performance matrix by region and month",
@@ -546,7 +527,6 @@ const ChartsDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Create Chart Modal */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -621,7 +601,7 @@ const ChartsDashboard: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  💡 Try these examples:
+                   Try these examples:
                 </label>
                 <div className="space-y-2">
                   {samplePrompts.map((sample, index) => (

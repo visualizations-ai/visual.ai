@@ -46,9 +46,5 @@ export const sidebarIcons: IconProps[] = [
     icon: <TrendingUp size={24} />,
     path: "/forecasts"
   },
-  { 
-    label: "settings", 
-    icon: <Settings size={24} />,
-    path: "/settings"
-  },
+
 ];

@@ -33,11 +33,17 @@ input CreateChartInput {
 input UpdateChartInput {
   name: String
   type: String
-cdata: [PointInput!] 
+  data: [PointInput!]
 }
 
 type DeleteResult {
   message: String!
+}
+
+input AiChartQuery {
+  projectId: String!
+  userPrompt: String!
+  chartType: String!
 }
 
 type Query {
@@ -46,9 +52,9 @@ type Query {
 }
 
 type Mutation {
+  generateChart(info: AiChartQuery!): String!
   createChart(input: CreateChartInput!): Chart!
   updateChart(id: String!, input: UpdateChartInput!): Chart!
   deleteChart(id: String!): DeleteResult!
 }
-
 `);

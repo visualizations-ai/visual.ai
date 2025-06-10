@@ -1,13 +1,11 @@
 import { gql } from "@apollo/client";
 
-// AI Chart Generation Query
 export const GENERATE_CHART_QUERY = gql`
-  query GenerateChart($info: AiChartQuery!) {
+  mutation GenerateChart($info: AiChartQuery!) {
     generateChart(info: $info)
   }
 `;
 
-// Chart CRUD Operations - ONLY fields that exist in your database
 export const GET_CHARTS_QUERY = gql`
   query GetCharts {
     getCharts {
