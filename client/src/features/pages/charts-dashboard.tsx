@@ -58,6 +58,7 @@ interface ChartData {
     rowLabels?: string[];
     columnLabels?: string[];
   };
+  createdAt: string;
 }
 
 interface NewChartForm {
@@ -65,72 +66,6 @@ interface NewChartForm {
   prompt: string;
   type: 'bar' | 'line' | 'pie' | 'doughnut' | 'number' | 'matrix';
 }
-
-// Mock data - replace with real data later
-const MOCK_CHARTS: ChartData[] = [
-  {
-    id: "1",
-    name: "Total Sales",
-    type: "number",
-    data: [{ x: 0, y: 1250000 }],
-    userId: "1"
-  },
-  {
-    id: "2",
-    name: "Monthly Sales",
-    type: "bar",
-    data: [
-      { x: 0, y: 100 },
-      { x: 1, y: 150 },
-      { x: 2, y: 200 }
-    ],
-    userId: "1"
-  },
-  {
-    id: "3",
-    name: "User Growth",
-    type: "line",
-    data: [
-      { x: 0, y: 50 },
-      { x: 1, y: 75 },
-      { x: 2, y: 90 }
-    ],
-    userId: "1"
-  }
-];
-
-const samplePrompts = [
-  {
-    type: 'number' as const,
-    prompt: "Show total sales amount for this quarter",
-    icon: "🔢"
-  },
-  {
-    type: 'bar' as const,
-    prompt: "Show me the top 10 customers by total purchase amount",
-    icon: "📊"
-  },
-  {
-    type: 'line' as const,
-    prompt: "Display sales trends over the last 12 months",
-    icon: "📈"
-  },
-  {
-    type: 'pie' as const,
-    prompt: "Break down revenue by product category",
-    icon: "🥧"
-  },
-  {
-    type: 'doughnut' as const,
-    prompt: "Show user distribution by region",
-    icon: "🍩"
-  },
-  {
-    type: 'matrix' as const,
-    prompt: "Create sales performance matrix by region and month",
-    icon: "🗂️"
-  }
-];
 
 const colors = [
   'rgba(99, 102, 241, 0.8)',  
@@ -228,7 +163,7 @@ const DataSourceSelector: React.FC<{
 const ChartsDashboard: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedDataSource, setSelectedDataSource] = useState<string | null>(null);
-  const [charts, setCharts] = useState<ChartData[]>(MOCK_CHARTS);
+  const [charts, setCharts] = useState<ChartData[]>([]);
   const [generatingChart, setGeneratingChart] = useState(false);
   const [newChart, setNewChart] = useState<NewChartForm>({
     name: '',
@@ -350,47 +285,109 @@ const ChartsDashboard: React.FC = () => {
       console.log("Generating chart with AI...");
       setGeneratingChart(true);
       
-      // Simulate chart generation with mock data
-      setTimeout(() => {
-        const newId = String(Date.now());
-        
-        let newMockChart: ChartData = {
-          id: newId,
-          name: newChart.name,
-          type: newChart.type,
-          userId: user?.id || "1",
-          data: []
-        };
+      // מוצא את projectId של הdata source הנבחר
+      const selectedDS = dataSources.find(ds => ds.id === selectedDataSource);
+      if (!selectedDS) {
+        throw new Error("Selected data source not found");
+      }
 
-        if (newChart.type === 'number') {
-          newMockChart.data = [{ x: 0, y: Math.floor(Math.random() * 1000000) }];
-        } else if (newChart.type === 'matrix') {
-          newMockChart.data = [];
-          newMockChart.matrixData = {
-            title: newChart.name,
-            matrix: [
-              [Math.floor(Math.random() * 100), Math.floor(Math.random() * 100), Math.floor(Math.random() * 100)],
-              [Math.floor(Math.random() * 100), Math.floor(Math.random() * 100), Math.floor(Math.random() * 100)],
-              [Math.floor(Math.random() * 100), Math.floor(Math.random() * 100), Math.floor(Math.random() * 100)]
-            ],
-            rowLabels: ["Row 1", "Row 2", "Row 3"],
-            columnLabels: ["Col A", "Col B", "Col C"]
+      // שולח ל-AI לייצור גרף
+      const response = await fetch('http://localhost:3000/api/v1/graphql', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          query: `
+            query GenerateChart($info: AiChartQuery!) {
+              generateChart(info: $info)
+            }
+          `,
+          variables: {
+            info: {
+              projectId: selectedDS.projectId,
+              userPrompt: newChart.prompt,
+              chartType: newChart.type
+            }
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.errors) {
+        throw new Error(data.errors[0]?.message || 'Chart generation failed');
+      }
+
+      if (data.data?.generateChart) {
+        try {
+          const result = JSON.parse(data.data.generateChart);
+          console.log('AI Chart Result:', result);
+          
+          // יצירת גרף חדש מהתוצאה של ה-AI
+          const newId = String(Date.now());
+          let newAIChart: ChartData = {
+            id: newId,
+            name: newChart.name,
+            type: newChart.type,
+            userId: user?.id || "1",
+            data: [],
+            createdAt: new Date().toISOString()
           };
-        } else {
-          newMockChart.data = [
-            { x: 0, y: Math.random() * 100 },
-            { x: 1, y: Math.random() * 100 },
-            { x: 2, y: Math.random() * 100 }
-          ];
-        }
 
-        setCharts(prev => [...prev, newMockChart]);
-        setGeneratingChart(false);
-        
-        setIsCreateModalOpen(false);
-        setNewChart({ name: '', prompt: '', type: 'bar' });
-        alert("Chart created successfully!");
-      }, 1500);
+          // עיבוד התוצאה מה-AI לפי סוג הגרף
+          if (newChart.type === 'number') {
+            // עבור גרף מספר - נקח הערך הראשון מהתוצאות
+            if (result.queryResult && result.queryResult.length > 0) {
+              const firstRow = result.queryResult[0];
+              const firstValue = Object.values(firstRow)[0] as number;
+              newAIChart.data = [{ x: 0, y: firstValue || 0 }];
+            }
+          } else if (newChart.type === 'matrix') {
+            // עבור מטריצה - נמיר את התוצאות למטריצה
+            if (result.queryResult && result.queryResult.length > 0) {
+              const columns = Object.keys(result.queryResult[0]);
+              const matrix = result.queryResult.map((row: any) => Object.values(row));
+              
+              newAIChart.data = [];
+              newAIChart.matrixData = {
+                title: newChart.name,
+                matrix: matrix,
+                rowLabels: result.queryResult.map((_: any, index: number) => `Row ${index + 1}`),
+                columnLabels: columns
+              };
+            }
+          } else {
+            // עבור גרפים רגילים (bar, line, pie, doughnut)
+            if (result.queryResult && result.queryResult.length > 0) {
+              newAIChart.data = result.queryResult.map((row: any, index: number) => {
+                const values = Object.values(row);
+                const yValue = typeof values[0] === 'number' ? values[0] : 
+                              typeof values[1] === 'number' ? values[1] : 
+                              Math.random() * 100; // fallback
+                return { x: index, y: yValue };
+              });
+            }
+          }
+
+          setCharts(prev => [...prev, newAIChart]);
+          setGeneratingChart(false);
+          setIsCreateModalOpen(false);
+          setNewChart({ name: '', prompt: '', type: 'bar' });
+          
+          alert("Chart created successfully with AI!");
+        } catch (parseError) {
+          console.error('Error parsing AI response:', parseError);
+          throw new Error('Failed to parse AI response');
+        }
+      } else {
+        throw new Error('No chart data received from AI');
+      }
 
     } catch (error: any) {
       console.error("Failed to generate chart:", error);
@@ -432,6 +429,39 @@ const ChartsDashboard: React.FC = () => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
+
+  const samplePrompts = [
+    {
+      type: 'number' as const,
+      prompt: "Show total sales amount for this quarter",
+      icon: "🔢"
+    },
+    {
+      type: 'bar' as const,
+      prompt: "Show me the top 10 customers by total purchase amount",
+      icon: "📊"
+    },
+    {
+      type: 'line' as const,
+      prompt: "Display sales trends over the last 12 months",
+      icon: "📈"
+    },
+    {
+      type: 'pie' as const,
+      prompt: "Break down revenue by product category",
+      icon: "🥧"
+    },
+    {
+      type: 'doughnut' as const,
+      prompt: "Show user distribution by region",
+      icon: "🍩"
+    },
+    {
+      type: 'matrix' as const,
+      prompt: "Create sales performance matrix by region and month",
+      icon: "🗂️"
+    }
+  ];
 
   const headerActions = (
     <button
