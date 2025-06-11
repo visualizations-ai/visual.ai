@@ -10,29 +10,37 @@ import {
 @Entity()
 @Index(['userId'])
 @Index(['projectId'])
-@Index(['userId', 'projectId']) 
+@Index(['userId', 'projectId'])
+@Index(['type'])
 export class Chart {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column()
+  @Column({ type: 'varchar', length: 255 })
   name: string;
 
-  @Column()
+  @Column({ type: 'varchar', length: 50 })
   type: string;
 
-  @Column("json")
-  data: [number, number][]; 
+  @Column({ type: 'jsonb' })
+  data: [number, number][];
 
-  @Column()
+  @Column({ type: 'uuid' })
   userId: string;
 
-  @Column()
+  @Column({ type: 'varchar', length: 255 })
   projectId: string;
 
-  @CreateDateColumn()
+  // עמודות תויות - Supabase תומך ב-text arrays
+  @Column({ type: 'text', array: true, nullable: true })
+  labels?: string[] | null;
+
+  @Column({ type: 'text', array: true, nullable: true })
+  categories?: string[] | null;
+
+  @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt: Date;
 }

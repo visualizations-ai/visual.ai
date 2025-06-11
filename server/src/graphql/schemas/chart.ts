@@ -13,6 +13,8 @@ type Chart {
   data: [Point!]!    
   userId: String!
   projectId: String!
+  labels: [String!]     
+  categories: [String!] 
   createdAt: String!
   updatedAt: String!
 }
@@ -28,12 +30,16 @@ input CreateChartInput {
   data: [PointInput!]!   
   userId: String!
   projectId: String!
+  labels: [String!]     
+  categories: [String!] 
 }
 
 input UpdateChartInput {
   name: String
   type: String
   data: [PointInput!]
+  labels: [String!]     
+  categories: [String!] 
 }
 
 type DeleteResult {

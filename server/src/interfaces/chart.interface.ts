@@ -10,6 +10,8 @@ export interface IChart {
   data: IPoint[];
   userId: string;
   projectId: string;
+  labels?: string[];
+  categories?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -20,10 +22,14 @@ export interface ICreateChartInput {
   data: IPoint[];
   userId: string;
   projectId: string;
+  labels?: string[];
+  categories?: string[];
 }
 
 export interface IUpdateChartInput {
   name?: string;
   type?: string;
   data?: IPoint[];
+  labels?: string[];
+  categories?: string[];
 }

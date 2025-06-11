@@ -40,13 +40,27 @@ const initialState: AuthState = {
   error: null
 };
 
-const clearDataSourcesCache = (specificUserId?: string) => {
+const clearAllUserData = (specificUserId?: string) => {
   try {
     const keys = Object.keys(localStorage);
     let clearedCount = 0;
     
     keys.forEach(key => {
+      // נקה data sources
       if (key.startsWith('dataSources_') || key.startsWith('dataSourcesMeta_')) {
+        if (specificUserId) {
+          if (key.includes(specificUserId)) {
+            localStorage.removeItem(key);
+            clearedCount++;
+          }
+        } else {
+          localStorage.removeItem(key);
+          clearedCount++;
+        }
+      }
+      
+      // נקה גרפים
+      if (key.startsWith('charts_')) {
         if (specificUserId) {
           if (key.includes(specificUserId)) {
             localStorage.removeItem(key);
@@ -59,12 +73,12 @@ const clearDataSourcesCache = (specificUserId?: string) => {
       }
     });
     
-    console.log(`🧹 Cleared ${clearedCount} data sources cache items${specificUserId ? ` for user ${specificUserId}` : ''}`);
+    console.log(`🧹 Cleared ${clearedCount} user data items${specificUserId ? ` for user ${specificUserId}` : ''}`);
     
     client.clearStore().catch(console.error);
     
   } catch (error) {
-    console.error("Failed to clear data sources cache:", error);
+    console.error("Failed to clear user data:", error);
   }
 };
 
@@ -72,7 +86,7 @@ export const loginUser = createAsyncThunk(
   'auth/login',
   async (credentials: { email: string; password: string }, thunkAPI) => {
     try {
-      clearDataSourcesCache();
+      clearAllUserData();
       
       const response = await client.mutate({
         mutation: LOGIN_MUTATION,
@@ -93,7 +107,7 @@ export const registerUser = createAsyncThunk(
   'auth/register',
   async (credentials: { email: string; password: string }, thunkAPI) => {
     try {
-      clearDataSourcesCache();
+      clearAllUserData();
       
       const response = await client.mutate({
         mutation: REGISTER_MUTATION,
@@ -139,11 +153,11 @@ export const logoutUser = createAsyncThunk(
         mutation: LOGOUT_MUTATION
       });
       
-      clearDataSourcesCache();
+      clearAllUserData();
       
       return undefined;
     } catch (error: unknown) {
-      clearDataSourcesCache();
+      clearAllUserData();
       
       if (error instanceof ApolloError || error instanceof Error) {
         return thunkAPI.rejectWithValue(error.message);
@@ -154,15 +168,15 @@ export const logoutUser = createAsyncThunk(
 );
 
 const handleUserChange = (previousUser: User | null, newUser: User | null) => {
-
+  // אם המשתמש השתנה, נקה את הנתונים של המשתמש הקודם
   if (previousUser && newUser && previousUser.id !== newUser.id) {
     console.log(`🔄 User changed from ${previousUser.id} to ${newUser.id} - clearing cache`);
-    clearDataSourcesCache(previousUser.id);
+    clearAllUserData(previousUser.id);
   }
-
+  // אם המשתמש התנתק, נקה הכל
   else if (previousUser && !newUser) {
     console.log(`👋 User ${previousUser.id} logged out - clearing all cache`);
-    clearDataSourcesCache();
+    clearAllUserData();
   }
 };
 
@@ -174,7 +188,6 @@ const authSlice = createSlice({
       const previousUser = state.user;
       const newUser = action.payload;
       
-
       handleUserChange(previousUser, newUser);
       
       state.user = newUser;
@@ -191,7 +204,7 @@ const authSlice = createSlice({
     forceLogout: (state) => {
       const previousUser = state.user;
       
-      clearDataSourcesCache();
+      clearAllUserData();
       
       state.user = null;
       state.projectIds = [];
@@ -222,7 +235,6 @@ const authSlice = createSlice({
             role: 'user'
           };
           
-
           handleUserChange(previousUser, newUser);
           
           state.user = newUser;

@@ -7,18 +7,24 @@ import {
   Trash2,
   AlertTriangle,
   ChevronDown,
-  Sparkles
+  Sparkles,
+  X
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useAppSelector } from "../../hooks/redux-hooks";
+import { useAppSelector, useAppDispatch } from "../../hooks/redux-hooks";
 import { useMutation, useQuery } from "@apollo/client";
 import { GET_DATA_SOURCES } from "../../graphql/data-sources";
-import {  GENERATE_CHART_QUERY,
-  GET_CHARTS_QUERY,
-  GET_CHART_QUERY,
-  CREATE_CHART_MUTATION,
-  UPDATE_CHART_MUTATION,
-  DELETE_CHART_MUTATION} from "../../graphql/charts";
+import { GENERATE_CHART_QUERY } from "../../graphql/charts";
+
+// Redux actions
+import {
+  fetchCharts,
+  addChartOptimistic,
+  removeChartOptimistic,
+  loadFromLocalStorage,
+  syncWithLocalStorage,
+  deleteChart as deleteChartAction
+} from "../../store/charts-slice";
 
 import {
   Chart as ChartJS,
@@ -33,7 +39,7 @@ import {
   Legend,
 } from 'chart.js';
 
-import { Bar, Line, Pie, Doughnut } from 'react-chartjs-2';
+import { Bar, Line, Pie } from 'react-chartjs-2';
 
 ChartJS.register(
   CategoryScale,
@@ -59,6 +65,8 @@ interface ChartData {
   data: ChartPoint[];
   userId: string;
   projectId?: string;
+  labels?: string[];
+  categories?: string[];
   matrixData?: {
     title: string;
     matrix: (number | string)[][];
@@ -74,6 +82,8 @@ interface CreateChartInput {
   data: ChartPoint[];
   userId: string;
   projectId: string;
+  labels?: string[];
+  categories?: string[];
 }
 
 interface NewChartForm {
@@ -83,30 +93,74 @@ interface NewChartForm {
 }
 
 const colors = [
-  'rgba(99, 102, 241, 0.8)',  
-  'rgba(236, 72, 153, 0.8)',   
-  'rgba(34, 197, 94, 0.8)',    
-  'rgba(251, 146, 60, 0.8)',   
-  'rgba(168, 85, 247, 0.8)',   
-  'rgba(14, 165, 233, 0.8)',   
-  'rgba(239, 68, 68, 0.8)',    
-  'rgba(245, 158, 11, 0.8)',   
+  'rgba(99, 102, 241, 0.8)',   // סגול כחול
+  'rgba(236, 72, 153, 0.8)',   // ורוד
+  'rgba(34, 197, 94, 0.8)',    // ירוק
+  'rgba(251, 146, 60, 0.8)',   // כתום
+  'rgba(168, 85, 247, 0.8)',   // סגול
+  'rgba(14, 165, 233, 0.8)',   // כחול
+  'rgba(239, 68, 68, 0.8)',    // אדום
+  'rgba(245, 158, 11, 0.8)',   // צהוב
+  'rgba(16, 185, 129, 0.8)',   // ירוק ים
+  'rgba(139, 92, 246, 0.8)',   // סגול בהיר
+  'rgba(244, 114, 182, 0.8)',  // ורוד בהיר
+  'rgba(56, 178, 172, 0.8)',   // טורקיז
 ];
 
 const convertGraphQLToChartJS = (chart: ChartData) => {
-  const labels = chart.data.map((_, index) => `Point ${index + 1}`);
+  let labels: string[] = [];
   const data = chart.data.map(point => point.y);
   
-  return {
+  console.log('🔍 Converting chart data:', {
+    name: chart.name,
+    type: chart.type,
+    hasLabels: !!chart.labels,
+    hasCategories: !!chart.categories,
+    labels: chart.labels,
+    categories: chart.categories,
+    dataLength: chart.data.length
+  });
+  
+  // אם יש קטגוריות/תויות שמורות, השתמש בהן
+  if (chart.labels && chart.labels.length > 0) {
+    labels = chart.labels;
+    console.log('✅ Using saved labels:', labels);
+  } else if (chart.categories && chart.categories.length > 0) {
+    labels = chart.categories;
+    console.log('✅ Using saved categories:', labels);
+  } else {
+    // ברירת מחדל - נסה להשתמש בשמות משמעותיים
+    labels = chart.data.map((_, index) => {
+      // אם זה גרף עוגה, תן שמות קטגוריות ברירת מחדל
+      if (chart.type === 'pie') {
+        const defaultCategories = [
+          'Category A', 'Category B', 'Category C', 'Category D', 
+          'Category E', 'Category F', 'Category G', 'Category H'
+        ];
+        return defaultCategories[index] || `Category ${index + 1}`;
+      }
+      return `Point ${index + 1}`;
+    });
+    console.log('⚠️ Using default labels:', labels);
+  }
+  
+  const result = {
     labels,
     datasets: [{
       label: chart.name,
       data,
-      backgroundColor: colors.slice(0, data.length),
-      borderColor: 'rgba(99, 102, 241, 1)',
+      backgroundColor: chart.type === 'pie' 
+        ? colors.slice(0, data.length)
+        : colors[0],
+      borderColor: chart.type === 'pie'
+        ? colors.slice(0, data.length).map(color => color.replace('0.8', '1'))
+        : 'rgba(99, 102, 241, 1)',
       borderWidth: 2
     }]
   };
+  
+  console.log('📊 Final chart data:', result);
+  return result;
 };
 
 const getChartOptions = (type: string, title: string) => {
@@ -128,6 +182,13 @@ const getChartOptions = (type: string, title: string) => {
           size: 16,
           weight: 'bold' as const
         }
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: 'white',
+        bodyColor: 'white',
+        borderColor: 'rgba(99, 102, 241, 1)',
+        borderWidth: 1
       }
     }
   };
@@ -138,6 +199,14 @@ const getChartOptions = (type: string, title: string) => {
       scales: {
         y: {
           beginAtZero: true,
+          grid: {
+            color: 'rgba(0, 0, 0, 0.1)'
+          }
+        },
+        x: {
+          grid: {
+            color: 'rgba(0, 0, 0, 0.1)'
+          }
         }
       }
     };
@@ -178,7 +247,6 @@ const DataSourceSelector: React.FC<{
 const ChartsDashboard: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedDataSource, setSelectedDataSource] = useState<string | null>(null);
-  const [charts, setCharts] = useState<ChartData[]>([]);
   const [generatingChart, setGeneratingChart] = useState(false);
   const [newChart, setNewChart] = useState<NewChartForm>({
     name: '',
@@ -187,6 +255,8 @@ const ChartsDashboard: React.FC = () => {
   });
 
   const { user } = useAppSelector(state => state.auth);
+  const { charts, loading: loadingCharts, error: chartsError } = useAppSelector(state => state.charts);
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
   const { data: dataSourcesData, loading: loadingDataSources } = useQuery(GET_DATA_SOURCES, {
@@ -198,14 +268,28 @@ const ChartsDashboard: React.FC = () => {
   useEffect(() => {
     if (!user) {
       navigate('/login');
+      return;
     }
-  }, [user, navigate]);
+
+    // טען גרפים מהלוקאל תחילה
+    dispatch(loadFromLocalStorage({ userId: user.id }));
+    
+    // אז טען מהשרת
+    dispatch(fetchCharts());
+  }, [user, navigate, dispatch]);
 
   useEffect(() => {
     if (dataSources.length > 0 && !selectedDataSource) {
       setSelectedDataSource(dataSources[0].id);
     }
   }, [dataSources, selectedDataSource]);
+
+  // סנכרון עם localStorage כשהגרפים משתנים
+  useEffect(() => {
+    if (user?.id && charts.length > 0) {
+      dispatch(syncWithLocalStorage({ userId: user.id }));
+    }
+  }, [charts, user?.id, dispatch]);
 
   const renderChart = (chart: ChartData) => {
     try {
@@ -271,8 +355,6 @@ const ChartsDashboard: React.FC = () => {
           return <Line data={chartJSData} options={options} />;
         case 'pie':
           return <Pie data={chartJSData} options={options} />;
-        case 'doughnut':
-          return <Doughnut data={chartJSData} options={options} />;
         default:
           return <Bar data={chartJSData} options={options} />;
       }
@@ -290,7 +372,6 @@ const ChartsDashboard: React.FC = () => {
   };
 
   const [generateChartMutation] = useMutation(GENERATE_CHART_QUERY);
-  const [createChartMutation] = useMutation(CREATE_CHART_MUTATION);
 
   const handleGenerateChart = async () => {
     if (!newChart.name.trim() || !newChart.prompt.trim() || !selectedDataSource) {
@@ -299,7 +380,7 @@ const ChartsDashboard: React.FC = () => {
     }
 
     try {
-      console.log(" Generating chart with AI...");
+      console.log("🤖 Generating chart with AI...");
       setGeneratingChart(true);
       
       const selectedDS = dataSources.find(ds => ds.id === selectedDataSource);
@@ -317,36 +398,28 @@ const ChartsDashboard: React.FC = () => {
         }
       });
 
-      console.log(" Raw mutation response:", data);
+      console.log("🔍 Raw mutation response:", data);
 
       if (data?.generateChart) {
         try {
           const result = JSON.parse(data.generateChart);
-          console.log(' Parsed result:', result);
+          console.log('📊 Parsed result:', result);
           
           let chartData: ChartPoint[] = [];
           let matrixData;
+          let labels: string[] = [];
 
           if (result.promptResult && result.promptResult.input) {
             const aiChart = result.promptResult.input;
-            console.log(' AI Chart Config:', aiChart);
-            console.log(' AI Chart Type:', aiChart.chartType);
-            console.log(' AI Chart Object:', aiChart.chart);
-            console.log(' AI Chart Data:', aiChart.chart?.data);
-            console.log(' AI Chart Value:', aiChart.chart?.value);
-            console.log(' AI Chart Matrix:', aiChart.chart?.matrix);
+            console.log('🎯 AI Chart Config:', aiChart);
             
             if (aiChart.chartType === 'number' || aiChart.chartType === 'NUMBER') {
-              console.log(' Processing NUMBER chart');
               if (aiChart.chart && aiChart.chart.value !== undefined) {
                 chartData = [{ x: 0, y: aiChart.chart.value }];
-                console.log(' Number data created:', chartData);
-              } else {
-                console.log(' No value found in chart.value');
+                labels = [newChart.name];
               }
             } 
             else if (aiChart.chartType === 'matrix' || aiChart.chartType === 'MATRIX') {
-              console.log(' Processing MATRIX chart');
               if (aiChart.chart && aiChart.chart.matrix) {
                 chartData = [];
                 matrixData = {
@@ -355,60 +428,104 @@ const ChartsDashboard: React.FC = () => {
                   rowLabels: aiChart.chart.rowLabels || [],
                   columnLabels: aiChart.chart.columnLabels || []
                 };
-                console.log(' Matrix data created:', matrixData);
-              } else {
-                console.log(' No matrix found in chart.matrix');
               }
             } 
             else if (['bar', 'line', 'pie', 'BAR', 'LINE', 'PIE', 'bar chart', 'line chart', 'pie chart'].includes(aiChart.chartType)) {
-              console.log(` Processing ${aiChart.chartType} chart`);
-              
               if (aiChart.chart && aiChart.chart.data && Array.isArray(aiChart.chart.data)) {
-                console.log('Found chart data array:', aiChart.chart.data);
-                console.log('xAxis field:', aiChart.chart.xAxis);
-                console.log(' yAxis field:', aiChart.chart.yAxis);
+                console.log('📊 Processing AI chart data:', aiChart.chart.data);
+                
+                // חילוץ תויות מהנתונים של ה-AI
+                if (aiChart.chart.xAxis) {
+                  labels = aiChart.chart.data.map((item: any) => {
+                    const labelValue = item[aiChart.chart.xAxis];
+                    return String(labelValue || `Item ${aiChart.chart.data.indexOf(item) + 1}`);
+                  });
+                  console.log('🏷️ Extracted labels from xAxis:', labels);
+                } else {
+                  // אם אין xAxis מוגדר, נחפש עמודה שנראית כמו תיאור
+                  const sampleItem = aiChart.chart.data[0];
+                  const keys = Object.keys(sampleItem);
+                  
+                  // חפש עמודה שנראית כמו שם/תיאור
+                  const labelKey = keys.find(key => 
+                    key.toLowerCase().includes('name') ||
+                    key.toLowerCase().includes('category') ||
+                    key.toLowerCase().includes('type') ||
+                    key.toLowerCase().includes('label') ||
+                    typeof sampleItem[key] === 'string'
+                  );
+                  
+                  if (labelKey) {
+                    labels = aiChart.chart.data.map((item: any) => String(item[labelKey]));
+                    console.log('🏷️ Extracted labels from labelKey:', labelKey, labels);
+                  } else {
+                    labels = aiChart.chart.data.map((_: any, index: number) => `Item ${index + 1}`);
+                    console.log('🏷️ Using default labels:', labels);
+                  }
+                }
                 
                 chartData = aiChart.chart.data.map((item: any, index: number) => {
-                  console.log(` Processing item ${index}:`, item);
-                  
                   let yVal = 0;
                   
                   if (typeof item === 'object' && item !== null) {
                     if (aiChart.chart.yAxis && item[aiChart.chart.yAxis] !== undefined) {
                       yVal = Number(item[aiChart.chart.yAxis]) || 0;
-                      console.log(` Using yAxis "${aiChart.chart.yAxis}": ${yVal}`);
                     } else {
-                      const values = Object.values(item);
-                      yVal = values.find(v => typeof v === 'number') as number || 0;
-                      console.log(`Using first numeric value: ${yVal}`);
+                      const values = Object.values(item).filter(v => typeof v === 'number');
+                      yVal = values[0] as number || 0;
                     }
                   } else if (typeof item === 'number') {
                     yVal = item;
-                    console.log(` Using direct number: ${yVal}`);
                   }
                   
                   return { x: index, y: yVal };
                 });
                 
-                console.log('Chart data created from AI:', chartData);
-              } else {
-                console.log(' No data array found in chart.data');
+                console.log('✅ Chart data processed:', chartData);
+                console.log('✅ Labels processed:', labels);
               }
-            } else {
-              console.log(`Unknown chart type: ${aiChart.chartType}`);
             }
           } else {
-            console.log(' No AI chart config found, using raw query data');
+            // Fallback logic
+            console.log('📊 Using fallback with raw query data');
             if (result.queryResult && result.queryResult.length > 0) {
-              console.log(' Using fallback with raw query data:', result.queryResult);
+              console.log('🔍 Raw query result:', result.queryResult);
+              
+              // חילוץ תויות מהנתונים הגולמיים
+              const firstRow = result.queryResult[0];
+              const keys = Object.keys(firstRow);
+              
+              // נחפש עמודה לתויות
+              const labelKey = keys.find(key => 
+                key.toLowerCase().includes('name') ||
+                key.toLowerCase().includes('category') ||
+                key.toLowerCase().includes('type') ||
+                key.toLowerCase().includes('label') ||
+                typeof firstRow[key] === 'string'
+              );
+              
+              if (labelKey) {
+                labels = result.queryResult.map((row: any) => String(row[labelKey]));
+                console.log('🏷️ Fallback labels from key:', labelKey, labels);
+              } else {
+                // אם זה גרף עוגה, תן שמות משמעותיים יותר
+                if (newChart.type === 'pie') {
+                  labels = result.queryResult.map((_: any, index: number) => {
+                    const categoryNames = ['Sales', 'Marketing', 'Support', 'Development', 'HR', 'Finance', 'Operations', 'Research'];
+                    return categoryNames[index] || `Category ${index + 1}`;
+                  });
+                } else {
+                  labels = result.queryResult.map((_: any, index: number) => `Item ${index + 1}`);
+                }
+                console.log('🏷️ Fallback default labels:', labels);
+              }
               
               if (newChart.type === 'number') {
-                const firstRow = result.queryResult[0];
                 const firstValue = Object.values(firstRow)[0] as number;
                 chartData = [{ x: 0, y: firstValue || 0 }];
-                console.log(' Fallback number data:', chartData);
+                labels = [newChart.name];
               } else if (newChart.type === 'matrix') {
-                const columns = Object.keys(result.queryResult[0]);
+                const columns = Object.keys(firstRow);
                 const matrix = result.queryResult.map((row: any) => Object.values(row));
                 chartData = [];
                 matrixData = {
@@ -417,70 +534,61 @@ const ChartsDashboard: React.FC = () => {
                   rowLabels: result.queryResult.map((_: any, index: number) => `Row ${index + 1}`),
                   columnLabels: columns
                 };
-                console.log(' Fallback matrix data:', matrixData);
               } else {
                 chartData = result.queryResult.map((row: any, index: number) => {
-                  const values = Object.values(row);
-                  const yValue = values.find(v => typeof v === 'number') as number || 0;
+                  const values = Object.values(row).filter(v => typeof v === 'number');
+                  const yValue = values[0] as number || 0;
                   return { x: index, y: yValue };
                 });
-                console.log('Fallback chart data:', chartData);
               }
-            } else {
-              chartData = [{ x: 0, y: 0 }];
-              console.log(' Using empty fallback data');
             }
           }
 
-          console.log(' Final chart data:', chartData);
-          console.log(' Final matrix data:', matrixData);
-
+          // אם עדיין אין נתונים, יצור נתונים לדוגמה
           if (chartData.length === 0 && !matrixData) {
-            console.log(' No chart data created, creating fallback');
             if (newChart.type === 'number') {
               chartData = [{ x: 0, y: 100 }]; 
+              labels = [newChart.name];
             } else {
               chartData = [
-                { x: 0, y: 10 },
-                { x: 1, y: 20 },
-                { x: 2, y: 15 }
-              ]; 
+                { x: 0, y: 65 },
+                { x: 1, y: 35 }
+              ];
+              if (newChart.type === 'pie') {
+                labels = ['Primary Category', 'Secondary Category'];
+              } else {
+                labels = ['Category A', 'Category B'];
+              }
             }
-            console.log(' Fallback data created:', chartData);
+            console.log('🎯 Created example data with labels:', labels);
           }
 
-          const createChartInput: CreateChartInput = {
-            name: newChart.name,
-            type: newChart.type,
-            data: chartData,
-            userId: user?.id || "1",
-            projectId: selectedDS.projectId
-          };
-
-          const createResponse = await createChartMutation({
-            variables: { input: createChartInput }
-          });
-
           const newAIChart: ChartData = {
-            id: createResponse.data?.createChart?.id || String(Date.now()),
+            id: String(Date.now()),
             name: newChart.name,
             type: newChart.type,
             userId: user?.id || "1",
             projectId: selectedDS.projectId,
             data: chartData,
+            labels: labels.length > 0 ? labels : undefined,
             matrixData: matrixData,
             createdAt: new Date().toISOString()
           };
 
-          setCharts(prev => [...prev, newAIChart]);
+          console.log('🎉 Final chart object:', newAIChart);
+
+          // הוספה אופטימיסטית ל-Redux
+          dispatch(addChartOptimistic(newAIChart));
+          
           setGeneratingChart(false);
           setIsCreateModalOpen(false);
           setNewChart({ name: '', prompt: '', type: 'bar' });
           
+          console.log('✅ Chart created with labels:', labels);
           alert("Chart created successfully!");
           
         } catch (parseError) {
-          console.error(' Parse error:', parseError);
+          console.error('❌ Parse error:', parseError);
           throw new Error('Failed to parse AI response');
         }
       } else {
@@ -488,7 +596,7 @@ const ChartsDashboard: React.FC = () => {
       }
 
     } catch (error: any) {
-      console.error(" Error:", error);
+      console.error("❌ Error:", error);
       setGeneratingChart(false);
       alert(`Failed to generate chart: ${error.message}`);
     }
@@ -498,12 +606,30 @@ const ChartsDashboard: React.FC = () => {
     if (!confirm("Are you sure you want to delete this chart?")) return;
 
     try {
-      setCharts(prev => prev.filter(chart => chart.id !== chartId));
+      console.log("🗑️ Deleting chart:", chartId);
+      
+      // מחיקה אופטימיסטית מ-Redux
+      dispatch(removeChartOptimistic(chartId));
+      
+      // מחיקה מהשרת באמצעות Redux
+      await dispatch(deleteChartAction(chartId)).unwrap();
+
+      console.log("✅ Chart deleted successfully");
       alert("Chart deleted successfully!");
+      
     } catch (error: any) {
-      console.error("Failed to delete chart:", error);
+      console.error("❌ Failed to delete chart:", error);
+      
+      // במקרה של שגיאה, טען מחדש מהשרת
+      dispatch(fetchCharts());
       alert(`Failed to delete chart: ${error.message}`);
     }
+  };
+
+  const handleCancelCreate = () => {
+    setIsCreateModalOpen(false);
+    setNewChart({ name: '', prompt: '', type: 'bar' });
+    setGeneratingChart(false);
   };
 
   const handleSamplePrompt = (prompt: any) => {
@@ -566,6 +692,24 @@ const ChartsDashboard: React.FC = () => {
     </button>
   );
 
+  if (loadingCharts) {
+    return (
+      <AppLayout
+        title="Charts Dashboard"
+        subtitle="Create beautiful charts with AI"
+        icon={<BarChart3 className="text-white lg:text-white text-slate-700 lg:w-8 lg:h-8" size={24} />}
+        headerActions={headerActions}
+      >
+        <div className="bg-gradient-to-b from-indigo-50/90 to-slate-50/90 min-h-full flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-slate-500">Loading charts...</p>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout
       title="Charts Dashboard"
@@ -581,6 +725,16 @@ const ChartsDashboard: React.FC = () => {
             dataSources={dataSources}
             loading={loadingDataSources}
           />
+
+          {chartsError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+                <span className="text-red-800 font-medium">Error loading charts</span>
+              </div>
+              <p className="text-red-700 text-sm mt-1">{chartsError}</p>
+            </div>
+          )}
 
           {charts.length === 0 ? (
             <div className="bg-white rounded-xl shadow-sm p-12 text-center">
@@ -609,6 +763,11 @@ const ChartsDashboard: React.FC = () => {
                           <span className="ml-2 bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-xs capitalize">
                             {chart.type}
                           </span>
+                          {chart.labels && chart.labels.length > 0 && (
+                            <span className="ml-2 bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs">
+                              {chart.labels.length} categories
+                            </span>
+                          )}
                         </p>
                       </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -639,15 +798,28 @@ const ChartsDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Modal for creating charts */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b bg-gradient-to-r from-indigo-50 to-purple-50">
-              <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                <Sparkles className="text-indigo-600" size={24} />
-                Create Chart with AI
-              </h2>
-              <p className="text-slate-600 mt-1">Describe what you want to visualize</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                    <Sparkles className="text-indigo-600" size={24} />
+                    Create Chart with AI
+                  </h2>
+                  <p className="text-slate-600 mt-1">Describe what you want to visualize</p>
+                </div>
+                <button
+                  onClick={handleCancelCreate}
+                  disabled={generatingChart}
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
+                  title="Cancel creation"
+                >
+                  <X size={24} />
+                </button>
+              </div>
             </div>
 
             <div className="p-6 space-y-6">
@@ -661,6 +833,7 @@ const ChartsDashboard: React.FC = () => {
                   onChange={(e) => setNewChart({ ...newChart, name: e.target.value })}
                   className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   placeholder="e.g., Monthly Sales Report"
+                  disabled={generatingChart}
                 />
               </div>
 
@@ -670,12 +843,11 @@ const ChartsDashboard: React.FC = () => {
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { value: 'number', label: ' Number Display' },
-                    { value: 'bar', label: 'Bar Chart' },
-                    { value: 'line', label: 'Line Chart' },
-                    { value: 'pie', label: ' Pie Chart' },
-                    { value: 'doughnut', label: ' Doughnut Chart' },
-                    { value: 'matrix', label: ' Matrix/Table' }
+                    { value: 'number', label: '🔢 Number Display' },
+                    { value: 'bar', label: '📊 Bar Chart' },
+                    { value: 'line', label: '📈 Line Chart' },
+                    { value: 'pie', label: '🥧 Pie Chart' },
+                    { value: 'matrix', label: '🗂️ Matrix/Table' }
                   ].map((type) => (
                     <label key={type.value} className="cursor-pointer">
                       <input
@@ -685,12 +857,13 @@ const ChartsDashboard: React.FC = () => {
                         checked={newChart.type === type.value}
                         onChange={(e) => setNewChart({ ...newChart, type: e.target.value as any })}
                         className="sr-only"
+                        disabled={generatingChart}
                       />
                       <div className={`p-3 border-2 rounded-lg text-center transition-all ${
                         newChart.type === type.value 
                           ? 'border-indigo-500 bg-indigo-50' 
                           : 'border-slate-200 hover:border-indigo-300'
-                      }`}>
+                      } ${generatingChart ? 'opacity-50 cursor-not-allowed' : ''}`}>
                         {type.label}
                       </div>
                     </label>
@@ -706,21 +879,26 @@ const ChartsDashboard: React.FC = () => {
                   value={newChart.prompt}
                   onChange={(e) => setNewChart({ ...newChart, prompt: e.target.value })}
                   className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
-                  placeholder="Describe your visualization..."
+                  placeholder="Describe your visualization... (e.g., 'Show sales by product category' - this will automatically extract category names for labels)"
                   rows={3}
+                  disabled={generatingChart}
                 />
+                <p className="text-xs text-slate-500 mt-2">
+                  💡 Tip: For pie/bar charts, mention specific categories to get meaningful labels instead of "Point 1", "Point 2"
+                </p>
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                   Try these examples:
+                  💡 Try these examples:
                 </label>
-                <div className="space-y-2">
+                <div className="space-y-2 max-h-48 overflow-y-auto">
                   {samplePrompts.map((sample, index) => (
                     <button
                       key={index}
                       onClick={() => handleSamplePrompt(sample)}
-                      className="w-full text-left p-3 border rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
+                      disabled={generatingChart}
+                      className="w-full text-left p-3 border rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <span className="mr-2">{sample.icon}</span>
                       <span className="text-sm">{sample.prompt}</span>
@@ -728,14 +906,27 @@ const ChartsDashboard: React.FC = () => {
                   ))}
                 </div>
               </div>
+
+              {generatingChart && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                    <div>
+                      <p className="text-blue-800 font-medium">Generating your chart...</p>
+                      <p className="text-blue-600 text-sm">This may take a few moments. Please don't close this window.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="p-6 border-t bg-slate-50 flex gap-3">
               <button
-                onClick={() => setIsCreateModalOpen(false)}
-                className="flex-1 px-6 py-3 border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors"
+                onClick={handleCancelCreate}
+                disabled={generatingChart}
+                className="flex-1 px-6 py-3 border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Cancel
+                {generatingChart ? 'Cancel' : 'Cancel'}
               </button>
               <button
                 onClick={handleGenerateChart}
