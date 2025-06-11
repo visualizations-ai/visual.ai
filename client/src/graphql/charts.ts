@@ -17,6 +17,11 @@ export const GET_CHARTS_QUERY = gql`
         y
       }
       userId
+      projectId
+      labels
+      categories
+      createdAt
+      updatedAt
     }
   }
 `;
@@ -32,6 +37,11 @@ export const GET_CHART_QUERY = gql`
         y
       }
       userId
+      projectId
+      labels
+      categories
+      createdAt
+      updatedAt
     }
   }
 `;
@@ -47,6 +57,11 @@ export const CREATE_CHART_MUTATION = gql`
         y
       }
       userId
+      projectId
+      labels
+      categories
+      createdAt
+      updatedAt
     }
   }
 `;
@@ -62,6 +77,11 @@ export const UPDATE_CHART_MUTATION = gql`
         y
       }
       userId
+      projectId
+      labels
+      categories
+      createdAt
+      updatedAt
     }
   }
 `;

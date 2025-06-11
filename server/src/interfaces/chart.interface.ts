@@ -10,8 +10,8 @@ export interface IChart {
   data: IPoint[];
   userId: string;
   projectId: string;
-  labels?: string[];
-  categories?: string[];
+  labels?: string[] | null;  // Allow null values
+  categories?: string[] | null;  // Allow null values
   createdAt: Date;
   updatedAt: Date;
 }

@@ -8,13 +8,15 @@ import {
   AlertTriangle,
   ChevronDown,
   Sparkles,
-  X
+  X,
+  Bug
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAppSelector, useAppDispatch } from "../../hooks/redux-hooks";
 import { useMutation, useQuery } from "@apollo/client";
 import { GET_DATA_SOURCES } from "../../graphql/data-sources";
-import { GENERATE_CHART_QUERY } from "../../graphql/charts";
+import { GENERATE_CHART_QUERY, CREATE_CHART_MUTATION } from "../../graphql/charts";
+import client from "../../graphql/apollo-client";
 
 // Redux actions
 import {
@@ -23,7 +25,10 @@ import {
   removeChartOptimistic,
   loadFromLocalStorage,
   syncWithLocalStorage,
-  deleteChart as deleteChartAction
+  deleteChart as deleteChartAction,
+  replaceTemporaryChart,
+  createChart,
+  clearError
 } from "../../store/charts-slice";
 
 import {
@@ -248,6 +253,7 @@ const ChartsDashboard: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedDataSource, setSelectedDataSource] = useState<string | null>(null);
   const [generatingChart, setGeneratingChart] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
   const [newChart, setNewChart] = useState<NewChartForm>({
     name: '',
     prompt: '',
@@ -265,31 +271,135 @@ const ChartsDashboard: React.FC = () => {
 
   const dataSources = useMemo(() => dataSourcesData?.getDataSources?.dataSource || [], [dataSourcesData]);
 
+  // Debug functions
+  const debugLocalStorage = () => {
+    if (!user?.id) return;
+    
+    console.log('🔍 DEBUG: Checking localStorage...');
+    const key = `charts_${user.id}`;
+    const stored = localStorage.getItem(key);
+    
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        console.log('🔍 DEBUG: localStorage data:', {
+          key,
+          count: parsed.length,
+          charts: parsed.map((c: any) => ({ 
+            id: c.id?.slice(0, 8), 
+            name: c.name 
+          }))
+        });
+        alert(`localStorage has ${parsed.length} charts`);
+      } catch (error) {
+        console.error('🔍 DEBUG: localStorage parse error:', error);
+        alert('localStorage parse error - check console');
+      }
+    } else {
+      console.log('🔍 DEBUG: No localStorage data found for key:', key);
+      alert('No localStorage data found');
+    }
+  };
+
+  const debugReduxState = () => {
+    console.log('🔍 DEBUG: Redux charts state:', {
+      count: charts.length,
+      loading: loadingCharts,
+      error: chartsError,
+      charts: charts.map(c => ({
+        id: c.id?.slice(0, 8),
+        name: c.name,
+        isTemp: c.id?.startsWith('temp_')
+      }))
+    });
+    alert(`Redux has ${charts.length} charts - check console for details`);
+  };
+
+  const forceSyncToLocalStorage = () => {
+    if (user?.id) {
+      dispatch(syncWithLocalStorage({ userId: user.id }));
+      alert('Force synced to localStorage');
+    }
+  };
+
+  const forceLoadFromLocalStorage = () => {
+    if (user?.id) {
+      dispatch(loadFromLocalStorage({ userId: user.id }));
+      alert('Force loaded from localStorage');
+    }
+  };
+
   useEffect(() => {
     if (!user) {
       navigate('/login');
       return;
     }
 
-    // טען גרפים מהלוקאל תחילה
+    console.log('🔄 Charts Dashboard: User effect triggered for user:', user.id);
+    
+    // Reset any previous state
+    dispatch(clearError());
+    
+    // Load from localStorage first for immediate display
     dispatch(loadFromLocalStorage({ userId: user.id }));
     
-    // אז טען מהשרת
-    dispatch(fetchCharts());
+    // Then fetch from server to get latest data
+    const fetchFromServer = async () => {
+      try {
+        console.log('📡 Fetching latest charts from server...');
+        await dispatch(fetchCharts()).unwrap();
+        console.log('✅ Server fetch completed');
+      } catch (error) {
+        console.error('❌ Server fetch failed:', error);
+        // If server fetch fails, we still have localStorage data
+      }
+    };
+    
+    // Small delay to let localStorage load first
+    const timeoutId = setTimeout(fetchFromServer, 100);
+    
+    return () => clearTimeout(timeoutId);
   }, [user, navigate, dispatch]);
+
+  // Effect to monitor charts state changes
+  useEffect(() => {
+    console.log('📊 Charts state update:', {
+      totalCharts: charts.length,
+      chartNames: charts.map(c => ({ 
+        id: c.id?.slice(0, 8), 
+        name: c.name,
+        isTemp: c.id?.startsWith('temp_')
+      })),
+      loading: loadingCharts,
+      error: chartsError
+    });
+  }, [charts, loadingCharts, chartsError]);
+
+  // Effect to sync to localStorage when charts change
+  useEffect(() => {
+    if (user?.id && charts.length >= 0) { // Allow syncing even with 0 charts
+      console.log('💾 Auto-syncing charts to localStorage');
+      dispatch(syncWithLocalStorage({ userId: user.id }));
+    }
+  }, [charts, user?.id, dispatch]);
+
+  // Effect to periodically sync localStorage (every 30 seconds)
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    const intervalId = setInterval(() => {
+      console.log('🔄 Periodic localStorage sync');
+      dispatch(syncWithLocalStorage({ userId: user.id }));
+    }, 30000); // 30 seconds
+    
+    return () => clearInterval(intervalId);
+  }, [user?.id, dispatch]);
 
   useEffect(() => {
     if (dataSources.length > 0 && !selectedDataSource) {
       setSelectedDataSource(dataSources[0].id);
     }
   }, [dataSources, selectedDataSource]);
-
-  // סנכרון עם localStorage כשהגרפים משתנים
-  useEffect(() => {
-    if (user?.id && charts.length > 0) {
-      dispatch(syncWithLocalStorage({ userId: user.id }));
-    }
-  }, [charts, user?.id, dispatch]);
 
   const renderChart = (chart: ChartData) => {
     try {
@@ -379,8 +489,11 @@ const ChartsDashboard: React.FC = () => {
       return;
     }
 
+    const tempId = `temp_${Date.now()}`;
+    let tempChartAdded = false;
+
     try {
-      console.log("🤖 Generating chart with AI...");
+      console.log("🤖 Starting chart generation process...");
       setGeneratingChart(true);
       
       const selectedDS = dataSources.find(ds => ds.id === selectedDataSource);
@@ -388,6 +501,7 @@ const ChartsDashboard: React.FC = () => {
         throw new Error("Selected data source not found");
       }
 
+      console.log("📡 Calling AI service...");
       const { data } = await generateChartMutation({
         variables: {
           info: {
@@ -398,207 +512,233 @@ const ChartsDashboard: React.FC = () => {
         }
       });
 
-      console.log("🔍 Raw mutation response:", data);
+      console.log("🔍 Raw AI response:", data);
 
-      if (data?.generateChart) {
-        try {
-          const result = JSON.parse(data.generateChart);
-          console.log('📊 Parsed result:', result);
-          
-          let chartData: ChartPoint[] = [];
-          let matrixData;
-          let labels: string[] = [];
+      if (!data?.generateChart) {
+        throw new Error('No chart data received from AI');
+      }
 
-          if (result.promptResult && result.promptResult.input) {
-            const aiChart = result.promptResult.input;
-            console.log('🎯 AI Chart Config:', aiChart);
+      const result = JSON.parse(data.generateChart);
+      console.log('📊 Parsed AI result:', result);
+      
+      let chartData: ChartPoint[] = [];
+      let matrixData;
+      let labels: string[] = [];
+
+      // Process AI response
+      if (result.promptResult && result.promptResult.input) {
+        const aiChart = result.promptResult.input;
+        console.log('🎯 AI Chart Config:', aiChart);
+        
+        if (aiChart.chartType === 'number' || aiChart.chartType === 'NUMBER') {
+          if (aiChart.chart && aiChart.chart.value !== undefined) {
+            chartData = [{ x: 0, y: aiChart.chart.value }];
+            labels = [newChart.name];
+          }
+        } 
+        else if (aiChart.chartType === 'matrix' || aiChart.chartType === 'MATRIX') {
+          if (aiChart.chart && aiChart.chart.matrix) {
+            chartData = [];
+            matrixData = {
+              title: aiChart.chart.title || newChart.name,
+              matrix: aiChart.chart.matrix,
+              rowLabels: aiChart.chart.rowLabels || [],
+              columnLabels: aiChart.chart.columnLabels || []
+            };
+          }
+        } 
+        else if (['bar', 'line', 'pie', 'BAR', 'LINE', 'PIE', 'bar chart', 'line chart', 'pie chart'].includes(aiChart.chartType)) {
+          if (aiChart.chart && aiChart.chart.data && Array.isArray(aiChart.chart.data)) {
+            console.log('📊 Processing AI chart data:', aiChart.chart.data);
             
-            if (aiChart.chartType === 'number' || aiChart.chartType === 'NUMBER') {
-              if (aiChart.chart && aiChart.chart.value !== undefined) {
-                chartData = [{ x: 0, y: aiChart.chart.value }];
-                labels = [newChart.name];
-              }
-            } 
-            else if (aiChart.chartType === 'matrix' || aiChart.chartType === 'MATRIX') {
-              if (aiChart.chart && aiChart.chart.matrix) {
-                chartData = [];
-                matrixData = {
-                  title: aiChart.chart.title || newChart.name,
-                  matrix: aiChart.chart.matrix,
-                  rowLabels: aiChart.chart.rowLabels || [],
-                  columnLabels: aiChart.chart.columnLabels || []
-                };
-              }
-            } 
-            else if (['bar', 'line', 'pie', 'BAR', 'LINE', 'PIE', 'bar chart', 'line chart', 'pie chart'].includes(aiChart.chartType)) {
-              if (aiChart.chart && aiChart.chart.data && Array.isArray(aiChart.chart.data)) {
-                console.log('📊 Processing AI chart data:', aiChart.chart.data);
-                
-                // חילוץ תויות מהנתונים של ה-AI
-                if (aiChart.chart.xAxis) {
-                  labels = aiChart.chart.data.map((item: any) => {
-                    const labelValue = item[aiChart.chart.xAxis];
-                    return String(labelValue || `Item ${aiChart.chart.data.indexOf(item) + 1}`);
-                  });
-                  console.log('🏷️ Extracted labels from xAxis:', labels);
-                } else {
-                  // אם אין xAxis מוגדר, נחפש עמודה שנראית כמו תיאור
-                  const sampleItem = aiChart.chart.data[0];
-                  const keys = Object.keys(sampleItem);
-                  
-                  // חפש עמודה שנראית כמו שם/תיאור
-                  const labelKey = keys.find(key => 
-                    key.toLowerCase().includes('name') ||
-                    key.toLowerCase().includes('category') ||
-                    key.toLowerCase().includes('type') ||
-                    key.toLowerCase().includes('label') ||
-                    typeof sampleItem[key] === 'string'
-                  );
-                  
-                  if (labelKey) {
-                    labels = aiChart.chart.data.map((item: any) => String(item[labelKey]));
-                    console.log('🏷️ Extracted labels from labelKey:', labelKey, labels);
-                  } else {
-                    labels = aiChart.chart.data.map((_: any, index: number) => `Item ${index + 1}`);
-                    console.log('🏷️ Using default labels:', labels);
-                  }
-                }
-                
-                chartData = aiChart.chart.data.map((item: any, index: number) => {
-                  let yVal = 0;
-                  
-                  if (typeof item === 'object' && item !== null) {
-                    if (aiChart.chart.yAxis && item[aiChart.chart.yAxis] !== undefined) {
-                      yVal = Number(item[aiChart.chart.yAxis]) || 0;
-                    } else {
-                      const values = Object.values(item).filter(v => typeof v === 'number');
-                      yVal = values[0] as number || 0;
-                    }
-                  } else if (typeof item === 'number') {
-                    yVal = item;
-                  }
-                  
-                  return { x: index, y: yVal };
-                });
-                
-                console.log('✅ Chart data processed:', chartData);
-                console.log('✅ Labels processed:', labels);
-              }
-            }
-          } else {
-            // Fallback logic
-            console.log('📊 Using fallback with raw query data');
-            if (result.queryResult && result.queryResult.length > 0) {
-              console.log('🔍 Raw query result:', result.queryResult);
+            // Extract labels
+            if (aiChart.chart.xAxis) {
+              labels = aiChart.chart.data.map((item: any) => {
+                const labelValue = item[aiChart.chart.xAxis];
+                return String(labelValue || `Item ${aiChart.chart.data.indexOf(item) + 1}`);
+              });
+            } else {
+              const sampleItem = aiChart.chart.data[0];
+              const keys = Object.keys(sampleItem);
               
-              // חילוץ תויות מהנתונים הגולמיים
-              const firstRow = result.queryResult[0];
-              const keys = Object.keys(firstRow);
-              
-              // נחפש עמודה לתויות
               const labelKey = keys.find(key => 
                 key.toLowerCase().includes('name') ||
                 key.toLowerCase().includes('category') ||
                 key.toLowerCase().includes('type') ||
                 key.toLowerCase().includes('label') ||
-                typeof firstRow[key] === 'string'
+                typeof sampleItem[key] === 'string'
               );
               
               if (labelKey) {
-                labels = result.queryResult.map((row: any) => String(row[labelKey]));
-                console.log('🏷️ Fallback labels from key:', labelKey, labels);
+                labels = aiChart.chart.data.map((item: any) => String(item[labelKey]));
               } else {
-                // אם זה גרף עוגה, תן שמות משמעותיים יותר
-                if (newChart.type === 'pie') {
-                  labels = result.queryResult.map((_: any, index: number) => {
-                    const categoryNames = ['Sales', 'Marketing', 'Support', 'Development', 'HR', 'Finance', 'Operations', 'Research'];
-                    return categoryNames[index] || `Category ${index + 1}`;
-                  });
+                labels = aiChart.chart.data.map((_: any, index: number) => `Item ${index + 1}`);
+              }
+            }
+            
+            chartData = aiChart.chart.data.map((item: any, index: number) => {
+              let yVal = 0;
+              
+              if (typeof item === 'object' && item !== null) {
+                if (aiChart.chart.yAxis && item[aiChart.chart.yAxis] !== undefined) {
+                  yVal = Number(item[aiChart.chart.yAxis]) || 0;
                 } else {
-                  labels = result.queryResult.map((_: any, index: number) => `Item ${index + 1}`);
+                  const values = Object.values(item).filter(v => typeof v === 'number');
+                  yVal = values[0] as number || 0;
                 }
-                console.log('🏷️ Fallback default labels:', labels);
+              } else if (typeof item === 'number') {
+                yVal = item;
               }
               
-              if (newChart.type === 'number') {
-                const firstValue = Object.values(firstRow)[0] as number;
-                chartData = [{ x: 0, y: firstValue || 0 }];
-                labels = [newChart.name];
-              } else if (newChart.type === 'matrix') {
-                const columns = Object.keys(firstRow);
-                const matrix = result.queryResult.map((row: any) => Object.values(row));
-                chartData = [];
-                matrixData = {
-                  title: newChart.name,
-                  matrix: matrix,
-                  rowLabels: result.queryResult.map((_: any, index: number) => `Row ${index + 1}`),
-                  columnLabels: columns
-                };
-              } else {
-                chartData = result.queryResult.map((row: any, index: number) => {
-                  const values = Object.values(row).filter(v => typeof v === 'number');
-                  const yValue = values[0] as number || 0;
-                  return { x: index, y: yValue };
-                });
-              }
-            }
+              return { x: index, y: yVal };
+            });
           }
-
-          // אם עדיין אין נתונים, יצור נתונים לדוגמה
-          if (chartData.length === 0 && !matrixData) {
-            if (newChart.type === 'number') {
-              chartData = [{ x: 0, y: 100 }]; 
-              labels = [newChart.name];
-            } else {
-              chartData = [
-                { x: 0, y: 65 },
-                { x: 1, y: 35 }
-              ];
-              if (newChart.type === 'pie') {
-                labels = ['Primary Category', 'Secondary Category'];
-              } else {
-                labels = ['Category A', 'Category B'];
-              }
-            }
-            console.log('🎯 Created example data with labels:', labels);
-          }
-
-          const newAIChart: ChartData = {
-            id: String(Date.now()),
-            name: newChart.name,
-            type: newChart.type,
-            userId: user?.id || "1",
-            projectId: selectedDS.projectId,
-            data: chartData,
-            labels: labels.length > 0 ? labels : undefined,
-            matrixData: matrixData,
-            createdAt: new Date().toISOString()
-          };
-
-          console.log('🎉 Final chart object:', newAIChart);
-
-          // הוספה אופטימיסטית ל-Redux
-          dispatch(addChartOptimistic(newAIChart));
-          
-          setGeneratingChart(false);
-          setIsCreateModalOpen(false);
-          setNewChart({ name: '', prompt: '', type: 'bar' });
-          
-          console.log('✅ Chart created with labels:', labels);
-          alert("Chart created successfully!");
-          
-        } catch (parseError) {
-          console.error('❌ Parse error:', parseError);
-          throw new Error('Failed to parse AI response');
         }
       } else {
-        throw new Error('No chart data received');
+        // Fallback logic
+        console.log('📊 Using fallback with raw query data');
+        if (result.queryResult && result.queryResult.length > 0) {
+          const firstRow = result.queryResult[0];
+          const keys = Object.keys(firstRow);
+          
+          const labelKey = keys.find(key => 
+            key.toLowerCase().includes('name') ||
+            key.toLowerCase().includes('category') ||
+            key.toLowerCase().includes('type') ||
+            key.toLowerCase().includes('label') ||
+            typeof firstRow[key] === 'string'
+          );
+          
+          if (labelKey) {
+            labels = result.queryResult.map((row: any) => String(row[labelKey]));
+          } else {
+            if (newChart.type === 'pie') {
+              labels = result.queryResult.map((_: any, index: number) => {
+                const categoryNames = ['Sales', 'Marketing', 'Support', 'Development', 'HR', 'Finance', 'Operations', 'Research'];
+                return categoryNames[index] || `Category ${index + 1}`;
+              });
+            } else {
+              labels = result.queryResult.map((_: any, index: number) => `Item ${index + 1}`);
+            }
+          }
+          
+          if (newChart.type === 'number') {
+            const firstValue = Object.values(firstRow)[0] as number;
+            chartData = [{ x: 0, y: firstValue || 0 }];
+            labels = [newChart.name];
+          } else if (newChart.type === 'matrix') {
+            const columns = Object.keys(firstRow);
+            const matrix = result.queryResult.map((row: any) => Object.values(row));
+            chartData = [];
+            matrixData = {
+              title: newChart.name,
+              matrix: matrix,
+              rowLabels: result.queryResult.map((_: any, index: number) => `Row ${index + 1}`),
+              columnLabels: columns
+            };
+          } else {
+            chartData = result.queryResult.map((row: any, index: number) => {
+              const values = Object.values(row).filter(v => typeof v === 'number');
+              const yValue = values[0] as number || 0;
+              return { x: index, y: yValue };
+            });
+          }
+        }
       }
 
-    } catch (error: any) {
-      console.error("❌ Error:", error);
+      // Create example data if still empty
+      if (chartData.length === 0 && !matrixData) {
+        console.log('⚠️ No data found, creating example data');
+        if (newChart.type === 'number') {
+          chartData = [{ x: 0, y: 100 }]; 
+          labels = [newChart.name];
+        } else {
+          chartData = [
+            { x: 0, y: 65 },
+            { x: 1, y: 35 }
+          ];
+          if (newChart.type === 'pie') {
+            labels = ['Primary Category', 'Secondary Category'];
+          } else {
+            labels = ['Category A', 'Category B'];
+          }
+        }
+      }
+
+      // Create temporary chart for immediate display
+      const tempChart: ChartData = {
+        id: tempId,
+        name: newChart.name,
+        type: newChart.type,
+        userId: user?.id || "1",
+        projectId: selectedDS.projectId,
+        data: chartData,
+        labels: labels.length > 0 ? labels : undefined,
+        matrixData: matrixData,
+        createdAt: new Date().toISOString()
+      };
+
+      console.log('🎯 Adding temporary chart to Redux:', tempChart);
+      
+      // Add optimistic chart to Redux
+      dispatch(addChartOptimistic(tempChart));
+      tempChartAdded = true;
+      
+      // Prepare data for server
+      const serverChartData = {
+        name: newChart.name,
+        type: newChart.type,
+        data: chartData,
+        userId: user?.id || "1",
+        projectId: selectedDS.projectId,
+        labels: labels.length > 0 ? labels : undefined,
+        categories: labels.length > 0 ? labels : undefined
+      };
+
+      console.log('💾 Saving chart to server:', serverChartData);
+
+      // Save to server using Redux action
+      const serverResponse = await dispatch(createChart(serverChartData)).unwrap();
+      
+      console.log('✅ Chart saved to server successfully:', serverResponse);
+      
+      // Replace temporary chart with real chart
+      if (serverResponse && serverResponse.id) {
+        console.log('🔄 Replacing temporary chart with server chart');
+        dispatch(replaceTemporaryChart({
+          tempId: tempId,
+          realChart: {
+            ...serverResponse,
+            labels: serverResponse.labels || labels,
+            matrixData: matrixData
+          }
+        }));
+      }
+      
+      // Force sync to localStorage
+      if (user?.id) {
+        console.log('💾 Syncing to localStorage');
+        dispatch(syncWithLocalStorage({ userId: user.id }));
+      }
+      
       setGeneratingChart(false);
-      alert(`Failed to generate chart: ${error.message}`);
+      setIsCreateModalOpen(false);
+      setNewChart({ name: '', prompt: '', type: 'bar' });
+      
+      console.log('✅ Chart creation process completed successfully');
+      alert("Chart created and saved successfully!");
+
+    } catch (error: any) {
+      console.error("❌ Chart creation failed:", error);
+      
+      // Remove temporary chart if it was added
+      if (tempChartAdded) {
+        console.log('🗑️ Removing temporary chart due to error');
+        dispatch(removeChartOptimistic(tempId));
+      }
+      
+      setGeneratingChart(false);
+      alert(`Failed to create chart: ${error.message}`);
     }
   };
 
@@ -683,13 +823,22 @@ const ChartsDashboard: React.FC = () => {
   ];
 
   const headerActions = (
-    <button
-      onClick={() => setIsCreateModalOpen(true)}
-      className="p-2 lg:px-6 lg:py-3 text-white rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-90 transition-all shadow-lg flex items-center gap-2"
-    >
-      <Sparkles size={16} className="lg:w-5 lg:h-5" />
-      <span className="hidden lg:inline">Create with AI</span>
-    </button>
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() => setShowDebug(!showDebug)}
+        className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+        title="Toggle Debug Panel"
+      >
+        <Bug size={16} />
+      </button>
+      <button
+        onClick={() => setIsCreateModalOpen(true)}
+        className="p-2 lg:px-6 lg:py-3 text-white rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-90 transition-all shadow-lg flex items-center gap-2"
+      >
+        <Sparkles size={16} className="lg:w-5 lg:h-5" />
+        <span className="hidden lg:inline">Create with AI</span>
+      </button>
+    </div>
   );
 
   if (loadingCharts) {
@@ -726,6 +875,45 @@ const ChartsDashboard: React.FC = () => {
             loading={loadingDataSources}
           />
 
+          {/* Debug Panel */}
+          {showDebug && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <h3 className="text-lg font-bold text-yellow-800 mb-3">Debug Panel</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+                <button
+                  onClick={debugLocalStorage}
+                  className="px-3 py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+                >
+                  Check localStorage
+                </button>
+                <button
+                  onClick={debugReduxState}
+                  className="px-3 py-2 bg-green-500 text-white rounded text-sm hover:bg-green-600"
+                >
+                  Check Redux State
+                </button>
+                <button
+                  onClick={forceSyncToLocalStorage}
+                  className="px-3 py-2 bg-purple-500 text-white rounded text-sm hover:bg-purple-600"
+                >
+                  Force Sync to localStorage
+                </button>
+                <button
+                  onClick={forceLoadFromLocalStorage}
+                  className="px-3 py-2 bg-orange-500 text-white rounded text-sm hover:bg-orange-600"
+                >
+                  Force Load from localStorage
+                </button>
+              </div>
+              <div className="mt-3 text-sm text-yellow-700">
+                <p><strong>Charts in Redux:</strong> {charts.length}</p>
+                <p><strong>Loading:</strong> {loadingCharts ? 'Yes' : 'No'}</p>
+                <p><strong>Error:</strong> {chartsError || 'None'}</p>
+                <p><strong>User ID:</strong> {user?.id || 'None'}</p>
+              </div>
+            </div>
+          )}
+
           {chartsError && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
               <div className="flex items-center gap-2">
@@ -759,13 +947,18 @@ const ChartsDashboard: React.FC = () => {
                       <div className="flex-1">
                         <h3 className="font-semibold text-slate-800">{chart.name}</h3>
                         <p className="text-sm text-slate-500">
-                          Chart #{charts.indexOf(chart) + 1}
+                          ID: {chart.id.slice(0, 8)}...
                           <span className="ml-2 bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-xs capitalize">
                             {chart.type}
                           </span>
+                          {chart.id.startsWith('temp_') && (
+                            <span className="ml-2 bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full text-xs">
+                              Temporary
+                            </span>
+                          )}
                           {chart.labels && chart.labels.length > 0 && (
                             <span className="ml-2 bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs">
-                              {chart.labels.length} categories
+                              {chart.labels.length} labels
                             </span>
                           )}
                         </p>
