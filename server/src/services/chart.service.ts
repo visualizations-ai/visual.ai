@@ -23,6 +23,9 @@ export class ChartService {
     return await chartRepository.find({
       where: {
         userId: userId
+      },
+      order: {
+        createdAt: 'DESC'
       }
     });
   }

@@ -58,6 +58,7 @@ interface ChartData {
   type: string;
   data: ChartPoint[];
   userId: string;
+  projectId?: string;
   matrixData?: {
     title: string;
     matrix: (number | string)[][];
@@ -65,6 +66,14 @@ interface ChartData {
     columnLabels?: string[];
   };
   createdAt: string;
+}
+
+interface CreateChartInput {
+  name: string;
+  type: string;
+  data: ChartPoint[];
+  userId: string;
+  projectId: string;
 }
 
 interface NewChartForm {
@@ -280,106 +289,210 @@ const ChartsDashboard: React.FC = () => {
     }
   };
 
-const [generateChartMutation] = useMutation(GENERATE_CHART_QUERY);
-const [createChartMutation] = useMutation(CREATE_CHART_MUTATION);
+  const [generateChartMutation] = useMutation(GENERATE_CHART_QUERY);
+  const [createChartMutation] = useMutation(CREATE_CHART_MUTATION);
 
- const handleGenerateChart = async () => {
-  if (!newChart.name.trim() || !newChart.prompt.trim() || !selectedDataSource) {
-    alert("Please fill in all fields and select a data source");
-    return;
-  }
-
-  try {
-    console.log("Generating chart with AI...");
-    setGeneratingChart(true);
-    
-    const selectedDS = dataSources.find(ds => ds.id === selectedDataSource);
-    if (!selectedDS) {
-      throw new Error("Selected data source not found");
+  const handleGenerateChart = async () => {
+    if (!newChart.name.trim() || !newChart.prompt.trim() || !selectedDataSource) {
+      alert("Please fill in all fields and select a data source");
+      return;
     }
 
-    const { data } = await generateChartMutation({
-      variables: {
-        info: {
-          projectId: selectedDS.projectId,
-          userPrompt: newChart.prompt,
-          chartType: newChart.type
-        }
+    try {
+      console.log(" Generating chart with AI...");
+      setGeneratingChart(true);
+      
+      const selectedDS = dataSources.find(ds => ds.id === selectedDataSource);
+      if (!selectedDS) {
+        throw new Error("Selected data source not found");
       }
-    });
 
-    if (data?.generateChart) {
-      try {
-        const result = JSON.parse(data.generateChart);
-        console.log('AI Chart Result:', result);
-        
-        const newId = String(Date.now());
-        const newAIChart: ChartData = {
-          id: newId,
-          name: newChart.name,
-          type: newChart.type,
-          userId: user?.id || "1",
-          data: [],
-          createdAt: new Date().toISOString()
-        };
-
-        if (newChart.type === 'number') {
-          if (result.queryResult && result.queryResult.length > 0) {
-            const firstRow = result.queryResult[0];
-            const firstValue = Object.values(firstRow)[0] as number;
-            newAIChart.data = [{ x: 0, y: firstValue || 0 }];
+      const { data } = await generateChartMutation({
+        variables: {
+          info: {
+            projectId: selectedDS.projectId,
+            userPrompt: newChart.prompt,
+            chartType: newChart.type
           }
-        } else if (newChart.type === 'matrix') {
-          if (result.queryResult && result.queryResult.length > 0) {
-            const columns = Object.keys(result.queryResult[0]);
-            const matrix = result.queryResult.map((row: any) => Object.values(row));
+        }
+      });
+
+      console.log(" Raw mutation response:", data);
+
+      if (data?.generateChart) {
+        try {
+          const result = JSON.parse(data.generateChart);
+          console.log(' Parsed result:', result);
+          
+          let chartData: ChartPoint[] = [];
+          let matrixData;
+
+          if (result.promptResult && result.promptResult.input) {
+            const aiChart = result.promptResult.input;
+            console.log(' AI Chart Config:', aiChart);
+            console.log(' AI Chart Type:', aiChart.chartType);
+            console.log(' AI Chart Object:', aiChart.chart);
+            console.log(' AI Chart Data:', aiChart.chart?.data);
+            console.log(' AI Chart Value:', aiChart.chart?.value);
+            console.log(' AI Chart Matrix:', aiChart.chart?.matrix);
             
-            newAIChart.data = [];
-            newAIChart.matrixData = {
-              title: newChart.name,
-              matrix: matrix,
-              rowLabels: result.queryResult.map((_: any, index: number) => `Row ${index + 1}`),
-              columnLabels: columns
-            };
+            if (aiChart.chartType === 'number' || aiChart.chartType === 'NUMBER') {
+              console.log(' Processing NUMBER chart');
+              if (aiChart.chart && aiChart.chart.value !== undefined) {
+                chartData = [{ x: 0, y: aiChart.chart.value }];
+                console.log(' Number data created:', chartData);
+              } else {
+                console.log(' No value found in chart.value');
+              }
+            } 
+            else if (aiChart.chartType === 'matrix' || aiChart.chartType === 'MATRIX') {
+              console.log(' Processing MATRIX chart');
+              if (aiChart.chart && aiChart.chart.matrix) {
+                chartData = [];
+                matrixData = {
+                  title: aiChart.chart.title || newChart.name,
+                  matrix: aiChart.chart.matrix,
+                  rowLabels: aiChart.chart.rowLabels || [],
+                  columnLabels: aiChart.chart.columnLabels || []
+                };
+                console.log(' Matrix data created:', matrixData);
+              } else {
+                console.log(' No matrix found in chart.matrix');
+              }
+            } 
+            else if (['bar', 'line', 'pie', 'BAR', 'LINE', 'PIE', 'bar chart', 'line chart', 'pie chart'].includes(aiChart.chartType)) {
+              console.log(` Processing ${aiChart.chartType} chart`);
+              
+              if (aiChart.chart && aiChart.chart.data && Array.isArray(aiChart.chart.data)) {
+                console.log('Found chart data array:', aiChart.chart.data);
+                console.log('xAxis field:', aiChart.chart.xAxis);
+                console.log(' yAxis field:', aiChart.chart.yAxis);
+                
+                chartData = aiChart.chart.data.map((item: any, index: number) => {
+                  console.log(` Processing item ${index}:`, item);
+                  
+                  let yVal = 0;
+                  
+                  if (typeof item === 'object' && item !== null) {
+                    if (aiChart.chart.yAxis && item[aiChart.chart.yAxis] !== undefined) {
+                      yVal = Number(item[aiChart.chart.yAxis]) || 0;
+                      console.log(` Using yAxis "${aiChart.chart.yAxis}": ${yVal}`);
+                    } else {
+                      const values = Object.values(item);
+                      yVal = values.find(v => typeof v === 'number') as number || 0;
+                      console.log(`Using first numeric value: ${yVal}`);
+                    }
+                  } else if (typeof item === 'number') {
+                    yVal = item;
+                    console.log(` Using direct number: ${yVal}`);
+                  }
+                  
+                  return { x: index, y: yVal };
+                });
+                
+                console.log('Chart data created from AI:', chartData);
+              } else {
+                console.log(' No data array found in chart.data');
+              }
+            } else {
+              console.log(`Unknown chart type: ${aiChart.chartType}`);
+            }
+          } else {
+            console.log(' No AI chart config found, using raw query data');
+            if (result.queryResult && result.queryResult.length > 0) {
+              console.log(' Using fallback with raw query data:', result.queryResult);
+              
+              if (newChart.type === 'number') {
+                const firstRow = result.queryResult[0];
+                const firstValue = Object.values(firstRow)[0] as number;
+                chartData = [{ x: 0, y: firstValue || 0 }];
+                console.log(' Fallback number data:', chartData);
+              } else if (newChart.type === 'matrix') {
+                const columns = Object.keys(result.queryResult[0]);
+                const matrix = result.queryResult.map((row: any) => Object.values(row));
+                chartData = [];
+                matrixData = {
+                  title: newChart.name,
+                  matrix: matrix,
+                  rowLabels: result.queryResult.map((_: any, index: number) => `Row ${index + 1}`),
+                  columnLabels: columns
+                };
+                console.log(' Fallback matrix data:', matrixData);
+              } else {
+                chartData = result.queryResult.map((row: any, index: number) => {
+                  const values = Object.values(row);
+                  const yValue = values.find(v => typeof v === 'number') as number || 0;
+                  return { x: index, y: yValue };
+                });
+                console.log('Fallback chart data:', chartData);
+              }
+            } else {
+              chartData = [{ x: 0, y: 0 }];
+              console.log(' Using empty fallback data');
+            }
           }
-        } else {
-          if (result.queryResult && result.queryResult.length > 0) {
-            newAIChart.data = result.queryResult.map((row: any, index: number) => {
-              const values = Object.values(row);
-              const yValue = typeof values[0] === 'number' ? values[0] : 
-                           typeof values[1] === 'number' ? values[1] : 
-                           Math.random() * 100;
-              return { x: index, y: yValue };
-            });
+
+          console.log(' Final chart data:', chartData);
+          console.log(' Final matrix data:', matrixData);
+
+          if (chartData.length === 0 && !matrixData) {
+            console.log(' No chart data created, creating fallback');
+            if (newChart.type === 'number') {
+              chartData = [{ x: 0, y: 100 }]; 
+            } else {
+              chartData = [
+                { x: 0, y: 10 },
+                { x: 1, y: 20 },
+                { x: 2, y: 15 }
+              ]; 
+            }
+            console.log(' Fallback data created:', chartData);
           }
+
+          const createChartInput: CreateChartInput = {
+            name: newChart.name,
+            type: newChart.type,
+            data: chartData,
+            userId: user?.id || "1",
+            projectId: selectedDS.projectId
+          };
+
+          const createResponse = await createChartMutation({
+            variables: { input: createChartInput }
+          });
+
+          const newAIChart: ChartData = {
+            id: createResponse.data?.createChart?.id || String(Date.now()),
+            name: newChart.name,
+            type: newChart.type,
+            userId: user?.id || "1",
+            projectId: selectedDS.projectId,
+            data: chartData,
+            matrixData: matrixData,
+            createdAt: new Date().toISOString()
+          };
+
+          setCharts(prev => [...prev, newAIChart]);
+          setGeneratingChart(false);
+          setIsCreateModalOpen(false);
+          setNewChart({ name: '', prompt: '', type: 'bar' });
+          
+          alert("Chart created successfully!");
+          
+        } catch (parseError) {
+          console.error(' Parse error:', parseError);
+          throw new Error('Failed to parse AI response');
         }
-
-        await createChartMutation({
-          variables: {
-            input: newAIChart
-          }
-        });
-
-        setCharts(prev => [...prev, newAIChart]);
-        setGeneratingChart(false);
-        setIsCreateModalOpen(false);
-        setNewChart({ name: '', prompt: '', type: 'bar' });
-        
-        alert("Chart created successfully with AI!");
-      } catch (parseError) {
-        console.error('Error parsing AI response:', parseError);
-        throw new Error('Failed to parse AI response');
+      } else {
+        throw new Error('No chart data received');
       }
-    } else {
-      throw new Error('No chart data received from AI');
-    }
 
-  } catch (error: any) {
-    console.error("Failed to generate chart:", error);
-    setGeneratingChart(false);
-    alert(`Failed to generate chart: ${error.message}`);
-  }
-};
+    } catch (error: any) {
+      console.error(" Error:", error);
+      setGeneratingChart(false);
+      alert(`Failed to generate chart: ${error.message}`);
+    }
+  };
 
   const handleDeleteChart = async (chartId: string) => {
     if (!confirm("Are you sure you want to delete this chart?")) return;
@@ -436,7 +549,6 @@ const [createChartMutation] = useMutation(CREATE_CHART_MUTATION);
       prompt: "Break down revenue by product category",
       icon: "🥧"
     },
- 
     {
       type: 'matrix' as const,
       prompt: "Create sales performance matrix by region and month",
@@ -558,12 +670,12 @@ const [createChartMutation] = useMutation(CREATE_CHART_MUTATION);
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { value: 'number', label: '🔢 Number Display' },
-                    { value: 'bar', label: '📊 Bar Chart' },
-                    { value: 'line', label: '📈 Line Chart' },
-                    { value: 'pie', label: '🥧 Pie Chart' },
-                    { value: 'doughnut', label: '🍩 Doughnut Chart' },
-                    { value: 'matrix', label: '🗂️ Matrix/Table' }
+                    { value: 'number', label: ' Number Display' },
+                    { value: 'bar', label: 'Bar Chart' },
+                    { value: 'line', label: 'Line Chart' },
+                    { value: 'pie', label: ' Pie Chart' },
+                    { value: 'doughnut', label: ' Doughnut Chart' },
+                    { value: 'matrix', label: ' Matrix/Table' }
                   ].map((type) => (
                     <label key={type.value} className="cursor-pointer">
                       <input

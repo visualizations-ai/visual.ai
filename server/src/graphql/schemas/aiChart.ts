@@ -14,6 +14,9 @@ export const aiChartSchema = buildSchema(`#graphql
 
     type Query {
       getSQLQueryData(info: AiSQLQuery!): String!
+    }
+
+    type Mutation {
       generateChart(info: AiChartQuery!): String!
     }
 `);

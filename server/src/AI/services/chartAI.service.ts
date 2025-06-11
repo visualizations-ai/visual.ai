@@ -9,36 +9,59 @@ import { DatasourceService } from "@/services/datasource.service";
 import { decrypt } from "@/utils/encryption.util";
 import { GraphQLError } from "graphql";
 import { ToolUseBlock } from "@anthropic-ai/sdk/resources";
-import { CHART_PROMPTS } from "@/AI/prompts/chartPrompt";
-import { generateChartPrompt, sqlGeneratorPrompt, sqlPromptMessage } from "@/AI/prompts/sqlPrompt";
-import { SYSTEM_PROMPT } from "@/AI/prompts/systemPrompt";
+import { sqlGeneratorPrompt, sqlPromptMessage } from "@/AI/prompts/sqlPrompt";
 
 const anthropicClient = new Anthropic({
   apiKey: envConfig.CLAUDE_API_KEY
 });
 
-// פונקציה עזר לפענוח בטוח
+const CHART_SYSTEM_PROMPT = `
+You are an expert data visualization specialist. Your job is to analyze SQL query results and create appropriate chart configurations using the generate_graph tool.
+
+CRITICAL: You MUST always use the generate_graph tool. Never respond with plain text.
+
+Guidelines for each chart type:
+
+1. NUMBER charts: Show a single KPI value
+2. BAR charts: Compare categories or rankings
+3. LINE charts: Show trends over time
+4. PIE charts: Show proportions of a whole
+5. MATRIX charts: Show cross-tabulated data
+
+Always use the generate_graph tool with the correct structure for the requested chart type.
+`;
+
+interface AIChartInput {
+  chartType: string;
+  chart: {
+    title?: string;
+    xAxis?: string;
+    yAxis?: string;
+    data?: any[];
+    value?: number;
+    matrix?: (number | string)[][];
+    rowLabels?: string[];
+    columnLabels?: string[];
+  };
+}
+
 function safeDecrypt(encryptedValue: string | undefined | null): string {
   if (!encryptedValue) return '';
   
   try {
-    // נסה קודם decrypt (לנתונים מוצפנים)
     const decrypted = decrypt(encryptedValue);
     if (decrypted && decrypted !== encryptedValue) {
       return decrypted;
     }
     
-    // אם זה לא עבד, נסה base64 פשוט
     try {
       const base64Decoded = Buffer.from(encryptedValue, 'base64').toString('utf-8');
       if (base64Decoded && base64Decoded !== encryptedValue) {
         return base64Decoded;
       }
     } catch (base64Error) {
-      // אם base64 נכשל, תמשיך
     }
     
-    // אם כלום לא עבד, החזר כמו שזה
     return encryptedValue;
   } catch (error) {
     console.warn('Decryption failed, using original value:', error);
@@ -49,84 +72,87 @@ function safeDecrypt(encryptedValue: string | undefined | null): string {
 export const generateChart = async (info: AiChart) => {
   let client: PoolClient | null = null;
   let pool: Pool | null = null;
+  
   try {
     const { projectId, userPrompt, chartType } = info;
-    console.log(`[START] Generating chart. Project ID: ${projectId}, Chart Type: ${chartType}`);
-
-    let promptResult: ToolUseBlock | null = null;
+    console.log(`[CHART] Generating ${chartType} chart for: ${userPrompt}`);
 
     const project: DataSourceDocument = await DatasourceService.getDataSourceByProjectId(projectId);
-    console.log(`[INFO] Retrieved project datasource for "${projectId}"`);
-
     const { databaseName, databaseUrl, username, password, port } = project;
     
-    // שימוש בפונקציה החדשה לפענוח בטוח
     const host = safeDecrypt(databaseUrl);
     const user = safeDecrypt(username);
     const pass = safeDecrypt(password);
     const dbName = safeDecrypt(databaseName);
     
-    console.log(`[DEBUG] Connection details - Host: ${host}, User: ${user}, DB: ${dbName}, Port: ${port}`);
-    
     pool = pgPool(host, user, pass, port!, dbName);
     client = await pool.connect();
-    console.log(`[INFO] Connected to PostgreSQL database "${dbName}"`);
+    console.log(`[CHART] Connected to database`);
 
     const schema: string = await getTableSchema(client);
-    console.log(`[INFO] Fetched table schema:\n${schema}`);
-
     const content: string = sqlPromptMessage(schema, userPrompt);
-    console.log(`[DEBUG] SQL prompt sent to AI:\n${content}`);
-
     const rawSQL: string = await aiSQLGenerator(content);
     const sql: string = rawSQL.replace(/```sql|```/g, '').trim();
-    console.log(`[DEBUG] Generated SQL:\n${sql}`);
+    console.log(`[CHART] Generated SQL: ${sql}`);
 
     const queryResult: QueryResult = await client.query(sql);
-    console.log(`[SUCCESS] SQL executed. Returned ${queryResult.rows.length} rows`);
+    console.log(`[CHART] Query executed. Rows: ${queryResult.rows.length}`);
+
+    let promptResult: ToolUseBlock | null = null;
 
     if (queryResult.rows.length > 0) {
-      const chartPrompt: string = CHART_PROMPTS[chartType as keyof typeof CHART_PROMPTS] || '';
-      console.log(`[INFO] Chart prompt loaded for type: ${chartType}`);
+      const chartPrompt = createChartPrompt(userPrompt, chartType, queryResult.rows);
+      console.log(`[CHART] Sending chart creation request to AI`);
 
-      const message: string = generateChartPrompt(userPrompt, chartType, chartPrompt, JSON.stringify(queryResult.rows));
-      console.log(`[DEBUG] Chart prompt to AI:\n${message}`);
+      try {
+        const response = await anthropicClient.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 2048,
+          temperature: 0.1,
+          tools: MODEL_TOOLS,
+          tool_choice: { type: 'tool', name: 'generate_graph' },
+          messages: [{ role: 'user', content: chartPrompt }],
+          system: CHART_SYSTEM_PROMPT
+        });
 
-      const response = await anthropicClient.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
-        temperature: 0.3,
-        tools: MODEL_TOOLS,
-        tool_choice: { type: 'auto' },
-        messages: [{ role: 'user', content: message }],
-        system: SYSTEM_PROMPT
-      });
+        const toolUseContent = response.content.find(
+          (res: Anthropic.Messages.ContentBlock) => res.type === 'tool_use'
+        ) as ToolUseBlock;
 
-      const toolUseContent: Anthropic.Messages.ToolUseBlock | undefined = response.content.find(
-        (res: Anthropic.Messages.ContentBlock) => res.type === 'tool_use'
-      );
-
-      promptResult = toolUseContent ? toolUseContent : null;
-      console.log(`[SUCCESS] Chart generated by AI using tool_use`);
+        if (toolUseContent) {
+          promptResult = toolUseContent;
+          console.log(`[CHART] AI generated chart config successfully`);
+          
+          const aiInput = toolUseContent.input as AIChartInput;
+          console.log(`[CHART] Chart type: ${aiInput?.chartType}`);
+        } else {
+          console.log(`[CHART] No tool_use found in AI response`);
+        }
+      } catch (aiError) {
+        console.error(`[CHART] AI chart generation failed:`, aiError);
+      }
     }
 
-    console.log(`[END] Chart generation complete.`);
-    return {
-      promptResult,
+    const finalResult = {
+      promptResult: promptResult,
       queryResult: queryResult.rows,
       sql
     };
+
+    console.log(`[CHART] Returning result with promptResult: ${!!promptResult}`);
+    return finalResult;
+
   } catch (error: any) {
-    console.error(`[ERROR] generateChart failed: ${error.message}`);
-    throw new GraphQLError(error?.message);
+    console.error(`[CHART] Error: ${error.message}`);
+    throw new GraphQLError(`Chart generation failed: ${error.message}`);
   } finally {
     if (client) {
       client.release();
-      console.log(`[INFO] PostgreSQL client released`);
+      console.log(`[CHART] Database client released`);
     }
     if (pool) {
       await pool.end();
-      console.log(`[INFO] PostgreSQL connection pool closed`);
+      console.log(`[CHART] Database pool closed`);
     }
   }
 };
@@ -137,56 +163,109 @@ export const getSQLQueryData = async (data: AiQuery): Promise<SQLQueryData> => {
 
   try {
     const { projectId, prompt } = data;
-    console.log(`[START] getSQLQueryData for projectId: ${projectId}`);
+    console.log(`[CHAT] Processing query for project: ${projectId}`);
 
     const project: DataSourceDocument = await DatasourceService.getDataSourceByProjectId(projectId);
-    console.log(`[INFO] Retrieved datasource for project "${projectId}"`);
-
     const { databaseName, databaseUrl, username, password, port } = project;
     
-    // שימוש בפונקציה החדשה לפענוח בטוח
     const host = safeDecrypt(databaseUrl);
     const user = safeDecrypt(username);
     const pass = safeDecrypt(password);
     const dbName = safeDecrypt(databaseName);
     
-    console.log(`[DEBUG] Connection details - Host: ${host}, User: ${user}, DB: ${dbName}, Port: ${port}`);
-    
     pool = pgPool(host, user, pass, port!, dbName);
-
     client = await pool.connect();
-    console.log(`[INFO] Connected to DB "${dbName}"`);
 
     const schema: string = await getTableSchema(client);
     const message: string = sqlGeneratorPrompt(schema, prompt);
-    console.log(`[DEBUG] SQL generation prompt:\n${message}`);
-
     const rawSQL: string = await aiSQLGenerator(message);
     const sql: string = rawSQL.replace(/```sql|```/g, '').trim();
-    console.log(`[DEBUG] Generated SQL:\n${sql}`);
+    console.log(`[CHAT] Generated SQL: ${sql}`);
 
     const result: QueryResult = await client.query(sql);
-    console.log(`[SUCCESS] SQL executed. Rows returned: ${result.rowCount}`);
+    console.log(`[CHAT] Query executed. Rows: ${result.rowCount}`);
 
     return { result: result.rows ?? [], sql };
 
   } catch (error: any) {
-    console.error(`[ERROR] getSQLQueryData failed: ${error.message}`);
-    throw new GraphQLError(error?.message);
+    console.error(`[CHAT] Error: ${error.message}`);
+    throw new GraphQLError(`SQL query failed: ${error.message}`);
   } finally {
-    if (client) {
-      client.release();
-      console.log(`[INFO] PostgreSQL client released`);
-    }
-    if (pool) {
-      await pool.end();
-      console.log(`[INFO] PostgreSQL pool closed`);
-    }
+    if (client) client.release();
+    if (pool) await pool.end();
   }
 };
 
+const createChartPrompt = (userPrompt: string, chartType: string, data: any[]): string => {
+  const sampleData = data.slice(0, 10); 
+  
+  return `
+Create a ${chartType} chart based on this user request: "${userPrompt}"
+
+Data sample (first 10 rows):
+${JSON.stringify(sampleData, null, 2)}
+
+Total rows available: ${data.length}
+
+Use the generate_graph tool to create a ${chartType} chart. Consider:
+- The user specifically requested a ${chartType} chart
+- Choose appropriate fields from the data for labels and values
+- Create a meaningful title
+- Structure the data correctly for the chart type
+
+Examples of what to return:
+
+For NUMBER chart:
+{
+  "chartType": "number",
+  "chart": {
+    "title": "Total Count",
+    "value": 12345
+  }
+}
+
+For BAR/LINE chart:
+{
+  "chartType": "${chartType}",
+  "chart": {
+    "title": "Sales by Category",
+    "xAxis": "category_name",
+    "yAxis": "total_sales",
+    "data": [
+      {"category_name": "Electronics", "total_sales": 50000},
+      {"category_name": "Clothing", "total_sales": 30000}
+    ]
+  }
+}
+
+For PIE chart:
+{
+  "chartType": "pie",
+  "chart": {
+    "title": "Distribution",
+    "data": [
+      {"segment": "Category A", "value": 40},
+      {"segment": "Category B", "value": 60}
+    ]
+  }
+}
+
+For MATRIX chart:
+{
+  "chartType": "matrix",
+  "chart": {
+    "title": "Cross Analysis",
+    "matrix": [[100, 200], [150, 250]],
+    "rowLabels": ["Row 1", "Row 2"],
+    "columnLabels": ["Col 1", "Col 2"]
+  }
+}
+
+IMPORTANT: Use the generate_graph tool with the exact structure above.
+`;
+};
+
 const getTableSchema = async (client: PoolClient): Promise<string> => {
-  console.log(`[INFO] Extracting table schema...`);
   const schemaQuery: string = `
     SELECT
       t.table_name,
@@ -217,12 +296,10 @@ const getTableSchema = async (client: PoolClient): Promise<string> => {
       t.table_name;
   `;
   const schema: QueryResult = await client.query(schemaQuery);
-  console.log(`[INFO] Schema query executed successfully`);
   return schema.rows.map((row) => `Table ${row.table_name}:\n  ${row.columns.join(',\n  ')}`).join('\n\n');
 };
 
 const aiSQLGenerator = async (message: string): Promise<string> => {
-  console.log(`[INFO] Calling Claude to generate SQL`);
   const sqlGeneration = await anthropicClient.messages.create({
     model: 'claude-sonnet-4-20250514',
     max_tokens: 1024,
@@ -234,7 +311,6 @@ const aiSQLGenerator = async (message: string): Promise<string> => {
     ]
   });
   const sql: string = (sqlGeneration.content[0] as any).text.trim();
-  console.log(`[SUCCESS] SQL generated by Claude`);
   return sql;
 };
 

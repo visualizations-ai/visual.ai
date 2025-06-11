@@ -9,6 +9,7 @@ export interface ChartData {
   type: 'bar' | 'line' | 'pie' | 'doughnut' | 'number' | 'matrix';
   data: ChartPoint[];
   projectId: string;
+  userId: string;
   createdAt: string;
   updatedAt?: string;
   matrixData?: {
@@ -24,6 +25,7 @@ export interface CreateChartInput {
   type: 'bar' | 'line' | 'pie' | 'doughnut' | 'number' | 'matrix';
   data: ChartPoint[];
   projectId: string;
+  userId: string;
   matrixData?: {
     title: string;
     matrix: (number | string)[][];

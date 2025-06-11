@@ -23,7 +23,9 @@ export const ChartResolvers = {
 
       return {
         ...chartEntity,
-        data: entityDataToPoints(chartEntity.data)
+        data: entityDataToPoints(chartEntity.data),
+        createdAt: chartEntity.createdAt,
+        updatedAt: chartEntity.updatedAt
       };
     },
 
@@ -34,7 +36,9 @@ export const ChartResolvers = {
       const charts = await chartService.getCharts(`${req.currentUser?.userId}`);
       return charts.map(chart => ({
         ...chart,
-        data: entityDataToPoints(chart.data)
+        data: entityDataToPoints(chart.data),
+        createdAt: chart.createdAt,
+        updatedAt: chart.updatedAt
       }));
     }
   },
@@ -52,7 +56,9 @@ export const ChartResolvers = {
 
       return {
         ...chartEntity,
-        data: entityDataToPoints(chartEntity.data)
+        data: entityDataToPoints(chartEntity.data),
+        createdAt: chartEntity.createdAt,
+        updatedAt: chartEntity.updatedAt
       };
     },
 
@@ -77,7 +83,24 @@ export const ChartResolvers = {
 
       return {
         ...updatedChart,
-        data: entityDataToPoints(updatedChart.data)
+        data: entityDataToPoints(updatedChart.data),
+        createdAt: updatedChart.createdAt,
+        updatedAt: updatedChart.updatedAt
+      };
+    },
+
+    async deleteChart(
+      _: undefined,
+      args: { id: string },
+      contextValue: AppContext
+    ): Promise<{ message: string }> {
+      const { req } = contextValue;
+      authenticateGraphQLRoute(req);
+
+      await chartService.deleteChart(args.id, `${req.currentUser?.userId}`);
+      
+      return {
+        message: "Chart deleted successfully"
       };
     }
   }

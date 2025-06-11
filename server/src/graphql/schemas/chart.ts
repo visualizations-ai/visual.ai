@@ -40,19 +40,12 @@ type DeleteResult {
   message: String!
 }
 
-input AiChartQuery {
-  projectId: String!
-  userPrompt: String!
-  chartType: String!
-}
-
 type Query {
   getCharts: [Chart!]!
   getChart(id: String!): Chart
 }
 
 type Mutation {
-  generateChart(info: AiChartQuery!): String!
   createChart(input: CreateChartInput!): Chart!
   updateChart(id: String!, input: UpdateChartInput!): Chart!
   deleteChart(id: String!): DeleteResult!

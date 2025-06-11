@@ -8,13 +8,18 @@ export interface IChart {
   name: string;
   type: string;
   data: IPoint[];
+  userId: string;
+  projectId: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface ICreateChartInput {
   name: string;
   type: string;
   data: IPoint[];
-  projectId: string;  
+  userId: string;
+  projectId: string;
 }
 
 export interface IUpdateChartInput {
