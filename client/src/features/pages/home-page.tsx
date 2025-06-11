@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { AppLayout } from "../../shared/app-layout";
-import { MessageSquare, Send, Loader2, Database, Settings, ChevronUp, ArrowUp } from "lucide-react";
+import { MessageSquare, Send, Loader2, Database, Settings, ChevronUp, ArrowUp, RefreshCw } from "lucide-react";
 import { useQuery } from "@apollo/client";
 import { GET_DATA_SOURCES } from "../../graphql/data-sources";
 
@@ -119,12 +119,16 @@ export const HomePage = () => {
       
       if (data.errors) {
         answer = `I apologize, but I encountered an error: ${data.errors[0]?.message || 'Unknown error'}`;
-      } else if (data.data?.getSQLQueryData) {
+      } else       if (data.data?.getSQLQueryData) {
         try {
           const result = JSON.parse(data.data.getSQLQueryData);
           
+          if (result.sql) {
+            answer += `**SQL Query Generated:**\n\`\`\`sql\n${result.sql}\n\`\`\`\n\n`;
+          }
+          
           if (result.result && result.result.length > 0) {
-            answer = `I found ${result.result.length} result${result.result.length === 1 ? '' : 's'} for your question.\n\n`;
+            answer += `**Results:** I found ${result.result.length} result${result.result.length === 1 ? '' : 's'} for your question.\n\n`;
             
             const showResults = result.result.slice(0, 3);
             showResults.forEach((row: any, index: number) => {
@@ -139,7 +143,7 @@ export const HomePage = () => {
               answer += `\n... and ${result.result.length - 3} more results.`;
             }
           } else {
-            answer = "I found no results for your query. The data might be empty or the query conditions might be too restrictive.";
+            answer += "**Results:** I found no results for your query. The data might be empty or the query conditions might be too restrictive.";
           }
         } catch (parseError) {
           answer = "I received data but couldn't format it properly.";
@@ -172,7 +176,6 @@ export const HomePage = () => {
     handleSubmit(undefined, question);
   };
 
-  // בטל את הכפתור בheader
   const headerActions = null;
 
   return (
@@ -180,8 +183,7 @@ export const HomePage = () => {
       title="New Conversation"
       subtitle="Ask anything about your data"
       icon={<MessageSquare className="text-white" size={24} />}
-      titleClickable={true}
-      onTitleClick={clearChat}
+      titleClickable={false} 
       headerActions={headerActions}
     >
       {loading && (
@@ -212,9 +214,23 @@ export const HomePage = () => {
         </div>
       )}
 
-      {/* הסרתי את Data Source Selector Dropdown מכאן - הועבר לתוך MessageInput */}
-
       <div className="h-full flex flex-col bg-gradient-to-b from-indigo-50/90 to-slate-50/90">
+        <div className="p-6 pb-0">
+          <button
+            onClick={clearChat}
+            className="group relative overflow-hidden px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-full hover:from-indigo-600 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-indigo-500/25 flex items-center gap-2.5 text-sm font-medium transform hover:scale-105 active:scale-95"
+            title="Start new conversation"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <RefreshCw 
+              size={16} 
+              className="relative z-10 group-hover:rotate-180 transition-transform duration-500" 
+            />
+            <span className="relative z-10 tracking-wide">New Chat</span>
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full opacity-0 group-hover:opacity-30 blur transition-all duration-300"></div>
+          </button>
+        </div>
+        
         <div className="flex-1 overflow-hidden">
           <div className="h-full flex flex-col">
             {messages.length === 0 ? (
@@ -252,19 +268,27 @@ export const HomePage = () => {
               </div>
             ) : (
               <div className="flex-1 overflow-y-auto p-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                <div className="max-w-2xl mx-auto space-y-4"> {/* שינוי לאותו רוחב של תיבת הטקסט */}
+                <div className="max-w-2xl mx-auto space-y-4">
                   {messages.map((msg, idx) => (
                     <div key={idx} className="animate-fade-in">
                       {msg.role === "user" ? (
-                        <div className="flex justify-start"> {/* שינוי מjustify-end ל-justify-start */}
+                        <div className="flex justify-start">
                           <div className="bg-white text-slate-900 p-3 rounded-xl w-full text-sm break-words border border-slate-100">
                             {msg.content}
                           </div>
                         </div>
                       ) : (
-                        <div className="flex justify-start"> {/* שינוי מjustify-end ל-justify-start */}
-                          <div className="text-slate-700 p-3 w-full text-sm break-words"> {/* שינוי מmax-w-[85%] ל-w-full */}
-                            {msg.content}
+                        <div className="flex justify-start">
+                          <div className="text-slate-700 p-3 w-full text-sm break-words">
+                            <div 
+                              className="prose prose-sm max-w-none"
+                              dangerouslySetInnerHTML={{
+                                __html: msg.content
+                                  .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                  .replace(/```sql\n([\s\S]*?)\n```/g, '<div class="bg-slate-100 p-3 rounded-lg mt-2 mb-2 font-mono text-xs"><strong>SQL Query:</strong><br/><code class="text-blue-600">$1</code></div>')
+                                  .replace(/\n/g, '<br/>')
+                              }}
+                            />
                           </div>
                         </div>
                       )}
@@ -275,9 +299,8 @@ export const HomePage = () => {
               </div>
             )}
 
-            {/* Message Input - תמיד בתחתית */}
             <div className="p-4">
-              <div className="max-w-2xl mx-auto"> {/* הרחבתי חזרה ל-2xl */}
+              <div className="max-w-2xl mx-auto">
                 <MessageInput
                   input={input}
                   setInput={setInput}
@@ -327,8 +350,8 @@ const MessageInput = ({
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      const minHeight = 60; // קטן יותר מ120
-      const maxHeight = 200; // קטן יותר מ400
+      const minHeight = 60;
+      const maxHeight = 200;
       const scrollHeight = textareaRef.current.scrollHeight;
       textareaRef.current.style.height = `${Math.max(minHeight, Math.min(scrollHeight, maxHeight))}px`;
     }
@@ -336,7 +359,6 @@ const MessageInput = ({
 
   return (
     <div className="relative" style={{ filter: 'drop-shadow(0 0 0 transparent)' }}>
-      {/* Data Source Selector Dropdown */}
       {showDataSourceSelector && dataSources.length > 0 && (
         <div className="absolute bottom-full mb-2 left-0 right-0 bg-white border border-slate-200 rounded-xl p-3 z-50">
           <div className="text-xs text-slate-500 mb-3">Choose your data source:</div>
@@ -365,7 +387,6 @@ const MessageInput = ({
       <div className="relative">
         <form onSubmit={handleSubmit} className="relative">
           <div className="bg-white border border-slate-300 rounded-xl focus-within:border-indigo-500 transition-all">
-            {/* Textarea */}
             <div className="relative">
               {textareaRef.current && textareaRef.current.scrollHeight > 200 && (
                 <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-white via-white to-transparent z-10" />
@@ -377,7 +398,7 @@ const MessageInput = ({
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={disabled ? "Please select a data source first..." : "Ask anything about your data"}
                 disabled={loading || disabled}
-                rows={1} // קטן יותר מ3
+                rows={1}
                 className={`w-full py-3 px-4 pr-16 bg-transparent text-slate-900 
                   placeholder-slate-400 border-none outline-none transition-all 
                   text-base resize-none min-h-[60px] max-h-[200px] overflow-y-auto
@@ -391,7 +412,6 @@ const MessageInput = ({
                 }}
               />
               
-              {/* Send Button */}
               <button
                 type="submit"
                 disabled={loading || !input.trim() || disabled}
@@ -405,9 +425,7 @@ const MessageInput = ({
               </button>
             </div>
             
-            {/* Bottom Bar with Tools */}
             <div className="flex items-center justify-between px-4 py-2 border-t border-slate-200 bg-slate-50/50">
-              {/* Data Source Selector עם חץ כלפי מעלה */}
               <button
                 type="button"
                 onClick={() => setShowDataSourceSelector(!showDataSourceSelector)}
@@ -428,7 +446,6 @@ const MessageInput = ({
                 />
               </button>
               
-              {/* Right side tools */}
               <div className="flex items-center gap-2 text-slate-400">
                 <span className="text-xs">Shift + Enter for new line</span>
               </div>

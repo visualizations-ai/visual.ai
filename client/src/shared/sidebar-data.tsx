@@ -2,7 +2,6 @@ import {
   ShoppingCart,
   TrendingUp,
   MessageSquare, 
-  Settings, 
   Database,
   Code,
   BarChart3
@@ -25,12 +24,6 @@ export const sidebarIcons: IconProps[] = [
     icon: <Code size={24} />,
     path: "/sql-editor"
   },
-  {
-  label: "settings",
-  icon: <Settings size={24} />,
-  path: "/settings"
-},
-
   { 
     label: "charts", 
     icon: <BarChart3 size={24} />,
@@ -45,6 +38,5 @@ export const sidebarIcons: IconProps[] = [
     label: "forecasts", 
     icon: <TrendingUp size={24} />,
     path: "/forecasts"
-  },
-
+  }
 ];
