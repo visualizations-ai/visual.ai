@@ -10,6 +10,7 @@ import { decrypt } from "@/utils/encryption.util";
 import { GraphQLError } from "graphql";
 import { ToolUseBlock } from "@anthropic-ai/sdk/resources";
 import { sqlGeneratorPrompt, sqlPromptMessage } from "@/AI/prompts/sqlPrompt";
+import { validateSQL } from "../utils/sqlSafety";
 
 const anthropicClient = new Anthropic({
   apiKey: envConfig.CLAUDE_API_KEY
@@ -47,13 +48,13 @@ interface AIChartInput {
 
 function safeDecrypt(encryptedValue: string | undefined | null): string {
   if (!encryptedValue) return '';
-  
+
   try {
     const decrypted = decrypt(encryptedValue);
     if (decrypted && decrypted !== encryptedValue) {
       return decrypted;
     }
-    
+
     try {
       const base64Decoded = Buffer.from(encryptedValue, 'base64').toString('utf-8');
       if (base64Decoded && base64Decoded !== encryptedValue) {
@@ -61,7 +62,7 @@ function safeDecrypt(encryptedValue: string | undefined | null): string {
       }
     } catch (base64Error) {
     }
-    
+
     return encryptedValue;
   } catch (error) {
     console.warn('Decryption failed, using original value:', error);
@@ -72,19 +73,19 @@ function safeDecrypt(encryptedValue: string | undefined | null): string {
 export const generateChart = async (info: AiChart) => {
   let client: PoolClient | null = null;
   let pool: Pool | null = null;
-  
+
   try {
     const { projectId, userPrompt, chartType } = info;
     console.log(`[CHART] Generating ${chartType} chart for: ${userPrompt}`);
 
     const project: DataSourceDocument = await DatasourceService.getDataSourceByProjectId(projectId);
     const { databaseName, databaseUrl, username, password, port } = project;
-    
+
     const host = safeDecrypt(databaseUrl);
     const user = safeDecrypt(username);
     const pass = safeDecrypt(password);
     const dbName = safeDecrypt(databaseName);
-    
+
     pool = pgPool(host, user, pass, port!, dbName);
     client = await pool.connect();
     console.log(`[CHART] Connected to database`);
@@ -93,6 +94,7 @@ export const generateChart = async (info: AiChart) => {
     const content: string = sqlPromptMessage(schema, userPrompt);
     const rawSQL: string = await aiSQLGenerator(content);
     const sql: string = rawSQL.replace(/```sql|```/g, '').trim();
+    validateSQL(sql)
     console.log(`[CHART] Generated SQL: ${sql}`);
 
     const queryResult: QueryResult = await client.query(sql);
@@ -122,7 +124,7 @@ export const generateChart = async (info: AiChart) => {
         if (toolUseContent) {
           promptResult = toolUseContent;
           console.log(`[CHART] AI generated chart config successfully`);
-          
+
           const aiInput = toolUseContent.input as AIChartInput;
           console.log(`[CHART] Chart type: ${aiInput?.chartType}`);
         } else {
@@ -167,12 +169,12 @@ export const getSQLQueryData = async (data: AiQuery): Promise<SQLQueryData> => {
 
     const project: DataSourceDocument = await DatasourceService.getDataSourceByProjectId(projectId);
     const { databaseName, databaseUrl, username, password, port } = project;
-    
+
     const host = safeDecrypt(databaseUrl);
     const user = safeDecrypt(username);
     const pass = safeDecrypt(password);
     const dbName = safeDecrypt(databaseName);
-    
+
     pool = pgPool(host, user, pass, port!, dbName);
     client = await pool.connect();
 
@@ -180,6 +182,7 @@ export const getSQLQueryData = async (data: AiQuery): Promise<SQLQueryData> => {
     const message: string = sqlGeneratorPrompt(schema, prompt);
     const rawSQL: string = await aiSQLGenerator(message);
     const sql: string = rawSQL.replace(/```sql|```/g, '').trim();
+    validateSQL(sql);
     console.log(`[CHAT] Generated SQL: ${sql}`);
 
     const result: QueryResult = await client.query(sql);
@@ -197,8 +200,8 @@ export const getSQLQueryData = async (data: AiQuery): Promise<SQLQueryData> => {
 };
 
 const createChartPrompt = (userPrompt: string, chartType: string, data: any[]): string => {
-  const sampleData = data.slice(0, 10); 
-  
+  const sampleData = data.slice(0, 10);
+
   return `
 Create a ${chartType} chart based on this user request: "${userPrompt}"
 
