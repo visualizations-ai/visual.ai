@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { AppLayout } from "../../shared/app-layout";
-import { MessageSquare, Send, Loader2 } from "lucide-react";
+import { MessageSquare, Send, Loader2, Database, Settings, ChevronUp, ArrowUp } from "lucide-react";
 import { useQuery } from "@apollo/client";
 import { GET_DATA_SOURCES } from "../../graphql/data-sources";
 
@@ -12,6 +12,7 @@ export const HomePage = () => {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [selectedDataSource, setSelectedDataSource] = useState<string | null>(null);
+  const [showDataSourceSelector, setShowDataSourceSelector] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const { data: dataSourcesData } = useQuery(GET_DATA_SOURCES, {
@@ -171,6 +172,9 @@ export const HomePage = () => {
     handleSubmit(undefined, question);
   };
 
+  // בטל את הכפתור בheader
+  const headerActions = null;
+
   return (
     <AppLayout
       title="New Conversation"
@@ -178,6 +182,7 @@ export const HomePage = () => {
       icon={<MessageSquare className="text-white" size={24} />}
       titleClickable={true}
       onTitleClick={clearChat}
+      headerActions={headerActions}
     >
       {loading && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
@@ -207,40 +212,29 @@ export const HomePage = () => {
         </div>
       )}
 
-      <div className="h-full flex flex-col bg-gradient-to-b from-indigo-50/90 to-slate-50/90">
-        {dataSources.length > 0 && (
-          <div className="p-4 bg-white border-b border-slate-200">
-            <div className="max-w-4xl mx-auto">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Select Data Source
-              </label>
-              <select
-                value={selectedDataSource || ""}
-                onChange={(e) => setSelectedDataSource(e.target.value)}
-                className="w-full max-w-md p-2 border border-slate-300 rounded-lg bg-white text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              >
-                <option value="">Choose your data source...</option>
-                {dataSources.map((ds: any) => (
-                  <option key={ds.id} value={ds.id}>
-                    {ds.projectId} ({ds.database})
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
+      {/* הסרתי את Data Source Selector Dropdown מכאן - הועבר לתוך MessageInput */}
 
-        <div className="flex-1 overflow-y-auto pb-24">
-          <div className="max-w-4xl mx-auto h-full">
+      <div className="h-full flex flex-col bg-gradient-to-b from-indigo-50/90 to-slate-50/90">
+        <div className="flex-1 overflow-hidden">
+          <div className="h-full flex flex-col">
             {messages.length === 0 ? (
-              <div className="h-full flex items-center justify-center">
-                <div className="flex flex-col items-center text-slate-700 space-y-8 -mt-20">
+              <div className="flex-1 flex items-center justify-center p-4">
+                <div className="flex flex-col items-center text-slate-700 space-y-8 max-w-4xl w-full">
                   <div className="text-center space-y-2">
                     <p className="animate__animated animate__fadeInUp animate__delay-1 text-xl font-medium text-slate-700">
                       Send a message to start conversation
                     </p>
                   </div>
-                  <div className="flex flex-wrap justify-center gap-4 max-w-2xl w-full mx-auto px-4 md:px-0">
+                  
+                  {!selectedDataSource && dataSources.length > 0 && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                      <p className="text-yellow-700 text-sm">
+                        Please select a data source to start asking questions
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div className="flex flex-wrap justify-center gap-4 max-w-2xl w-full">
                     {sampleQuestions.map((question, index) => (
                       <button
                         key={index}
@@ -254,58 +248,52 @@ export const HomePage = () => {
                       </button>
                     ))}
                   </div>
-                  <div className="w-full max-w-2xl px-4 md:px-0">
-                    <MessageInput
-                      input={input}
-                      setInput={setInput}
-                      handleSubmit={handleSubmit}
-                      loading={loading}
-                      disabled={!selectedDataSource}
-                    />
-                  </div>
                 </div>
               </div>
             ) : (
-              <div className="h-[calc(100vh-200px)] overflow-hidden -ml-[9%]">
-                <div className="max-w-2xl mx-auto h-full overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
-                  <div className="pt-4 space-y-4 flex flex-col px-4" style={{minWidth: 0, width: '100%'}}>
-                    {messages.map((msg, idx) => (
-                      <div key={idx} className="animate-fade-in mb-4 w-full">
-                        {msg.role === "user" ? (
-                          <div className="flex justify-end mb-2">
-                            <div className="bg-indigo-300 text-white p-3.5 rounded-xl text-sm max-w-[85%] md:max-w-full break-all hyphens-auto" style={{wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap', minWidth: 0}}>
-                              {msg.content}
-                            </div>
+              <div className="flex-1 overflow-y-auto p-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                <div className="max-w-2xl mx-auto space-y-4"> {/* שינוי לאותו רוחב של תיבת הטקסט */}
+                  {messages.map((msg, idx) => (
+                    <div key={idx} className="animate-fade-in">
+                      {msg.role === "user" ? (
+                        <div className="flex justify-start"> {/* שינוי מjustify-end ל-justify-start */}
+                          <div className="bg-white text-slate-900 p-3 rounded-xl w-full text-sm break-words border border-slate-100">
+                            {msg.content}
                           </div>
-                        ) : (
-                          <div className="flex justify-end md:justify-end mb-2">
-                            <div className="text-slate-700 p-3.5 text-sm max-w-[85%] md:max-w-full break-all hyphens-auto" style={{wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap', minWidth: 0}}>
-                              {msg.content}
-                            </div>
+                        </div>
+                      ) : (
+                        <div className="flex justify-start"> {/* שינוי מjustify-end ל-justify-start */}
+                          <div className="text-slate-700 p-3 w-full text-sm break-words"> {/* שינוי מmax-w-[85%] ל-w-full */}
+                            {msg.content}
                           </div>
-                        )}
-                      </div>
-                    ))}
-
-                    <div ref={messagesEndRef} className="h-4" />
-                  </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  <div ref={messagesEndRef} />
                 </div>
               </div>
             )}
+
+            {/* Message Input - תמיד בתחתית */}
+            <div className="p-4">
+              <div className="max-w-2xl mx-auto"> {/* הרחבתי חזרה ל-2xl */}
+                <MessageInput
+                  input={input}
+                  setInput={setInput}
+                  handleSubmit={handleSubmit}
+                  loading={loading}
+                  disabled={!selectedDataSource}
+                  dataSources={dataSources}
+                  selectedDataSource={selectedDataSource}
+                  setSelectedDataSource={setSelectedDataSource}
+                  showDataSourceSelector={showDataSourceSelector}
+                  setShowDataSourceSelector={setShowDataSourceSelector}
+                />
+              </div>
+            </div>
           </div>
         </div>
-
-        {messages.length > 0 && (
-          <div className="fixed bottom-4 left-4 right-4 md:absolute md:bottom-6 md:left-1/2 md:transform md:-translate-x-1/2 md:w-full md:max-w-2xl md:px-4">
-            <MessageInput
-              input={input}
-              setInput={setInput}
-              handleSubmit={handleSubmit}
-              loading={loading}
-              disabled={!selectedDataSource}
-            />
-          </div>
-        )}
       </div>
     </AppLayout>
   );
@@ -317,79 +305,137 @@ const MessageInput = ({
   handleSubmit,
   loading,
   disabled = false,
+  dataSources,
+  selectedDataSource,
+  setSelectedDataSource,
+  showDataSourceSelector,
+  setShowDataSourceSelector,
 }: {
   input: string;
   setInput: React.Dispatch<React.SetStateAction<string>>;
   handleSubmit: (e?: React.FormEvent) => void;
   loading: boolean;
   disabled?: boolean;
+  dataSources: any[];
+  selectedDataSource: string | null;
+  setSelectedDataSource: (id: string) => void;
+  showDataSourceSelector: boolean;
+  setShowDataSourceSelector: (show: boolean) => void;
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      const maxHeight = 216; 
+      const minHeight = 60; // קטן יותר מ120
+      const maxHeight = 200; // קטן יותר מ400
       const scrollHeight = textareaRef.current.scrollHeight;
-      textareaRef.current.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
+      textareaRef.current.style.height = `${Math.max(minHeight, Math.min(scrollHeight, maxHeight))}px`;
     }
   }, [input]);
 
   return (
-    <div
-      className="rounded-xl p-[1px] transition-all duration-300 relative"
-      style={{ background: "rgb(199 210 254)" }}
-      id="input-container-bottom"
-    >
-      <form onSubmit={handleSubmit} className="relative">
-        <div className="relative">
-          {textareaRef.current && textareaRef.current.scrollHeight > 216 && (
-            <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-white via-white to-transparent z-10" />
-          )}
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={disabled ? "Please select a data source first..." : "Type your message..."}
-            disabled={loading || disabled}
-            rows={1}
-            className={`w-full py-6 px-4 pr-14 rounded-xl bg-white text-slate-900 
-              placeholder-slate-600 border-none outline-none shadow-lg transition-all 
-              text-base resize-none max-h-[216px] overflow-y-auto
-              [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]
-              ${loading || disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-            onFocus={() => {
-              if (!disabled) {
-                const container = document.getElementById("input-container-bottom");
-                if (container)
-                  container.style.background =
-                    "linear-gradient(135deg, #8B5CF6, #6366F1, #3B82F6)";
-              }
-            }}
-            onBlur={() => {
-              const container = document.getElementById("input-container-bottom");
-              if (container) container.style.background = "rgb(199 210 254)";
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey && !disabled) {
-                e.preventDefault();
-                handleSubmit();
-              }
-            }}
-          />
+    <div className="relative" style={{ filter: 'drop-shadow(0 0 0 transparent)' }}>
+      {/* Data Source Selector Dropdown */}
+      {showDataSourceSelector && dataSources.length > 0 && (
+        <div className="absolute bottom-full mb-2 left-0 right-0 bg-white border border-slate-200 rounded-xl p-3 z-50">
+          <div className="text-xs text-slate-500 mb-3">Choose your data source:</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+            {dataSources.map((ds: any) => (
+              <button
+                key={ds.id}
+                onClick={() => {
+                  setSelectedDataSource(ds.id);
+                  setShowDataSourceSelector(false);
+                }}
+                className={`text-left p-2 rounded-lg text-sm transition-colors border ${
+                  selectedDataSource === ds.id 
+                    ? 'bg-indigo-50 border-indigo-200 text-indigo-900' 
+                    : 'hover:bg-slate-50 text-slate-700 border-slate-200'
+                }`}
+              >
+                <div className="font-medium">{ds.projectId}</div>
+                <div className="text-xs text-slate-500">({ds.database})</div>
+              </button>
+            ))}
+          </div>
         </div>
-        <button
-          type="submit"
-          disabled={loading || !input.trim() || disabled}
-          className="absolute right-4 top-6 text-slate-900 hover:text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? (
-            <Loader2 className="w-6 h-6 animate-spin" />
-          ) : (
-            <Send className="w-6 h-6" />
-          )}
-        </button>
-      </form>
+      )}
+      
+      <div className="relative">
+        <form onSubmit={handleSubmit} className="relative">
+          <div className="bg-white border border-slate-300 rounded-xl focus-within:border-indigo-500 transition-all">
+            {/* Textarea */}
+            <div className="relative">
+              {textareaRef.current && textareaRef.current.scrollHeight > 200 && (
+                <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-white via-white to-transparent z-10" />
+              )}
+              
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={disabled ? "Please select a data source first..." : "Ask anything about your data"}
+                disabled={loading || disabled}
+                rows={1} // קטן יותר מ3
+                className={`w-full py-3 px-4 pr-16 bg-transparent text-slate-900 
+                  placeholder-slate-400 border-none outline-none transition-all 
+                  text-base resize-none min-h-[60px] max-h-[200px] overflow-y-auto
+                  [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]
+                  ${loading || disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey && !disabled) {
+                    e.preventDefault();
+                    handleSubmit();
+                  }
+                }}
+              />
+              
+              {/* Send Button */}
+              <button
+                type="submit"
+                disabled={loading || !input.trim() || disabled}
+                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Send className="w-5 h-5" />
+                )}
+              </button>
+            </div>
+            
+            {/* Bottom Bar with Tools */}
+            <div className="flex items-center justify-between px-4 py-2 border-t border-slate-200 bg-slate-50/50">
+              {/* Data Source Selector עם חץ כלפי מעלה */}
+              <button
+                type="button"
+                onClick={() => setShowDataSourceSelector(!showDataSourceSelector)}
+                className="flex items-center gap-2 px-3 py-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md text-sm transition-colors"
+              >
+                <Database size={14} />
+                <span>
+                  {selectedDataSource 
+                    ? dataSources.find(ds => ds.id === selectedDataSource)?.projectId || "Data Source"
+                    : "Select Data Source"
+                  }
+                </span>
+                <ArrowUp 
+                  size={14} 
+                  className={`transform transition-transform ${
+                    showDataSourceSelector ? 'rotate-180' : 'rotate-0'
+                  }`}
+                />
+              </button>
+              
+              {/* Right side tools */}
+              <div className="flex items-center gap-2 text-slate-400">
+                <span className="text-xs">Shift + Enter for new line</span>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };

@@ -142,11 +142,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     </p>
   )}
 
-  {titleClickable && (
-    <p className="animate__animated animate__fadeInUp animate__delay-2 text-xs text-slate-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-      Click to start new conversation
-    </p>
-  )}
 </div>
 
           </div>
