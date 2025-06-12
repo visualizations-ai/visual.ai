@@ -46,7 +46,6 @@ const clearAllUserData = (specificUserId?: string) => {
     let clearedCount = 0;
     
     keys.forEach(key => {
-      // נקה data sources
       if (key.startsWith('dataSources_') || key.startsWith('dataSourcesMeta_')) {
         if (specificUserId) {
           if (key.includes(specificUserId)) {
@@ -59,7 +58,6 @@ const clearAllUserData = (specificUserId?: string) => {
         }
       }
       
-      // נקה גרפים
       if (key.startsWith('charts_')) {
         if (specificUserId) {
           if (key.includes(specificUserId)) {
@@ -168,14 +166,12 @@ export const logoutUser = createAsyncThunk(
 );
 
 const handleUserChange = (previousUser: User | null, newUser: User | null) => {
-  // אם המשתמש השתנה, נקה את הנתונים של המשתמש הקודם
   if (previousUser && newUser && previousUser.id !== newUser.id) {
-    console.log(`🔄 User changed from ${previousUser.id} to ${newUser.id} - clearing cache`);
+    console.log(` User changed from ${previousUser.id} to ${newUser.id} - clearing cache`);
     clearAllUserData(previousUser.id);
   }
-  // אם המשתמש התנתק, נקה הכל
   else if (previousUser && !newUser) {
-    console.log(`👋 User ${previousUser.id} logged out - clearing all cache`);
+    console.log(` User ${previousUser.id} logged out - clearing all cache`);
     clearAllUserData();
   }
 };
@@ -213,7 +209,7 @@ const authSlice = createSlice({
       state.loading = false;
       state.error = null;
       
-      console.log(`🚪 Force logout${previousUser ? ` for user ${previousUser.id}` : ''}`);
+      console.log(` Force logout${previousUser ? ` for user ${previousUser.id}` : ''}`);
     }
   },
   extraReducers: (builder) => {

@@ -447,7 +447,7 @@ const DataSources = () => {
                 </div>
 
                 <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
-                  <div className="grid grid-cols-12 gap-4 text-sm font-medium text-gray-600">
+                  <div className="grid grid-cols-12 gap-4 text-sm font-medium text-gray-600 items-center">
                     <div className="col-span-3">Data Source</div>
                     <div className="col-span-2">Type</div>
                     <div className="col-span-2">Database</div>
@@ -463,7 +463,7 @@ const DataSources = () => {
                       key={dataSource.id}
                       className="px-6 py-4 hover:bg-gray-50 transition-colors"
                     >
-                      <div className="grid grid-cols-12 gap-4">
+                      <div className="grid grid-cols-12 gap-4 items-center">
                         <div className="col-span-3 flex items-center gap-3">
                           <div className="bg-indigo-100 p-2 rounded-lg">
                             <Database className="w-4 h-4 text-indigo-600" />
@@ -502,19 +502,19 @@ const DataSources = () => {
                           </div>
                         </div>
 
-                        <div className="col-span-2">
+                        <div className="col-span-2 flex items-center">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                             {dataSource.type}
                           </span>
                         </div>
 
-                        <div className="col-span-2">
+                        <div className="col-span-2 flex items-center">
                           <span className="text-sm text-gray-900">
                             {dataSource.database}
                           </span>
                         </div>
 
-                        <div className="col-span-2">
+                        <div className="col-span-2 flex items-center">
                           <div className="flex items-center gap-2">
                             <CheckCircle className="w-4 h-4 text-green-500" />
                             <span className="text-sm font-medium text-green-600">
@@ -523,7 +523,7 @@ const DataSources = () => {
                           </div>
                         </div>
 
-                        <div className="col-span-2">
+                        <div className="col-span-2 flex items-center">
                           <span className="text-sm text-gray-500">Recently</span>
                         </div>
 
@@ -808,4 +808,4 @@ const DataSources = () => {
   );
 };
 
-export default DataSources;
+export default DataSources

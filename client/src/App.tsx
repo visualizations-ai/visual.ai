@@ -12,69 +12,72 @@ import DataSources from "./features/pages/data-sources";
 import SqlEditor from "./features/pages/sql-editor";
 import { ApolloProvider } from "@apollo/client";
 import client from "./graphql/apollo-client";
+import { ToastProvider } from "./shared/ToastContext";
 
 function App() {
   return (
     <Provider store={store}>
       <ApolloProvider client={client}>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route
-              path="/home"
-              element={
-                <ProtectedRoute>
-                  <HomePage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/data-sources"
-              element={
-                <ProtectedRoute>
-                  <DataSources />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/sql-editor"
-              element={
-                <ProtectedRoute>
-                  <SqlEditor />
-                </ProtectedRoute>
-              }
-            />
-           <Route
-  path="/charts"
-  element={
-    <ProtectedRoute>
-      <ChartsDashboard />
-    </ProtectedRoute>
-  }
-/>
-            <Route
-              path="/purchase-recommendations"
-              element={
-                <ProtectedRoute>
-                  <PurchaseRecommendations />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/forecasts"
-              element={
-                <ProtectedRoute>
-                  <div className="p-8 text-center">
-                    <h1 className="text-2xl font-bold text-gray-800">Forecasts</h1>
-                    <p className="text-gray-600 mt-2">Coming soon...</p>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </BrowserRouter>
+        <ToastProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route
+                path="/home"
+                element={
+                  <ProtectedRoute>
+                    <HomePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/data-sources"
+                element={
+                  <ProtectedRoute>
+                    <DataSources />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/sql-editor"
+                element={
+                  <ProtectedRoute>
+                    <SqlEditor />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/charts"
+                element={
+                  <ProtectedRoute>
+                    <ChartsDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/purchase-recommendations"
+                element={
+                  <ProtectedRoute>
+                    <PurchaseRecommendations />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/forecasts"
+                element={
+                  <ProtectedRoute>
+                    <div className="p-8 text-center">
+                      <h1 className="text-2xl font-bold text-gray-800">Forecasts</h1>
+                      <p className="text-gray-600 mt-2">Coming soon...</p>
+                    </div>
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </BrowserRouter>
+        </ToastProvider>
       </ApolloProvider>
     </Provider>
   );

@@ -30,7 +30,7 @@ export const HomePage = () => {
   const clearChat = () => {
     setMessages([]);
     setInput("");
-    setCopiedStates({}); // נקה גם את מצבי ההעתקה
+    setCopiedStates({}); 
   };
 
   useEffect(() => {
@@ -63,14 +63,10 @@ export const HomePage = () => {
     }, 200);
     return interval;
   };
-
-  // פונקציה להעתקת SQL
   const copyToClipboard = async (text: string, messageIndex: number) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedStates(prev => ({ ...prev, [messageIndex]: true }));
-      
-      // החזר למצב רגיל אחרי 2 שניות
       setTimeout(() => {
         setCopiedStates(prev => ({ ...prev, [messageIndex]: false }));
       }, 2000);
@@ -79,7 +75,6 @@ export const HomePage = () => {
     }
   };
 
-  // פונקציה לחילוץ SQL מתוך התשובה
   const extractSQLFromMessage = (content: string): string | null => {
     const sqlMatch = content.match(/```sql\n([\s\S]*?)\n```/);
     return sqlMatch ? sqlMatch[1].trim() : null;
@@ -304,9 +299,7 @@ export const HomePage = () => {
                         <div className="flex justify-start">
                           <div className="text-slate-700 p-3 w-full text-sm break-words">
                             <div className="prose prose-sm max-w-none">
-                              {/* עיבוד התוכן עם כפתור העתקה */}
                               {msg.content.split(/(\*\*SQL Query Generated:\*\*\n```sql\n[\s\S]*?\n```)/g).map((part, partIndex) => {
-                                // בדיקה אם זה חלק של SQL
                                 const sqlMatch = part.match(/\*\*SQL Query Generated:\*\*\n```sql\n([\s\S]*?)\n```/);
                                 if (sqlMatch) {
                                   const sqlQuery = sqlMatch[1];
@@ -336,7 +329,6 @@ export const HomePage = () => {
                                     </div>
                                   );
                                 } else {
-                                  // עיבוד רגיל של טקסט
                                   return (
                                     <div
                                       key={partIndex}

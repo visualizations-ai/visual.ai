@@ -260,7 +260,6 @@ const SqlEditor = () => {
     item.query.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Header Actions
   const headerActions = (
     <button
       onClick={() => setShowHistory(!showHistory)}

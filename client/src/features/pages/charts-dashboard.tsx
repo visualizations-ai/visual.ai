@@ -8,26 +8,20 @@ import {
   AlertTriangle,
   ChevronDown,
   Sparkles,
-  X,
-  Bug
+  X
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAppSelector, useAppDispatch } from "../../hooks/redux-hooks";
 import { useMutation, useQuery } from "@apollo/client";
 import { GET_DATA_SOURCES } from "../../graphql/data-sources";
 import { GENERATE_CHART_QUERY, CREATE_CHART_MUTATION } from "../../graphql/charts";
-import client from "../../graphql/apollo-client";
+import { useToast } from "../../shared/ToastContext";
 
-// Redux actions
 import {
   fetchCharts,
-  addChartOptimistic,
-  removeChartOptimistic,
   loadFromLocalStorage,
   syncWithLocalStorage,
   deleteChart as deleteChartAction,
-  replaceTemporaryChart,
-  createChart,
   clearError
 } from "../../store/charts-slice";
 
@@ -72,6 +66,9 @@ interface ChartData {
   projectId?: string;
   labels?: string[];
   categories?: string[];
+  additionalData?: {
+    [key: string]: any[];
+  };
   matrixData?: {
     title: string;
     matrix: (number | string)[][];
@@ -81,16 +78,6 @@ interface ChartData {
   createdAt: string;
 }
 
-interface CreateChartInput {
-  name: string;
-  type: string;
-  data: ChartPoint[];
-  userId: string;
-  projectId: string;
-  labels?: string[];
-  categories?: string[];
-}
-
 interface NewChartForm {
   name: string;
   prompt: string;
@@ -98,45 +85,30 @@ interface NewChartForm {
 }
 
 const colors = [
-  'rgba(99, 102, 241, 0.8)',   // סגול כחול
-  'rgba(236, 72, 153, 0.8)',   // ורוד
-  'rgba(34, 197, 94, 0.8)',    // ירוק
-  'rgba(251, 146, 60, 0.8)',   // כתום
-  'rgba(168, 85, 247, 0.8)',   // סגול
-  'rgba(14, 165, 233, 0.8)',   // כחול
-  'rgba(239, 68, 68, 0.8)',    // אדום
-  'rgba(245, 158, 11, 0.8)',   // צהוב
-  'rgba(16, 185, 129, 0.8)',   // ירוק ים
-  'rgba(139, 92, 246, 0.8)',   // סגול בהיר
-  'rgba(244, 114, 182, 0.8)',  // ורוד בהיר
-  'rgba(56, 178, 172, 0.8)',   // טורקיז
+  'rgba(99, 102, 241, 0.8)',   
+  'rgba(236, 72, 153, 0.8)',   
+  'rgba(34, 197, 94, 0.8)',    
+  'rgba(251, 146, 60, 0.8)',   
+  'rgba(168, 85, 247, 0.8)',   
+  'rgba(14, 165, 233, 0.8)',   
+  'rgba(239, 68, 68, 0.8)',    
+  'rgba(245, 158, 11, 0.8)',   
+  'rgba(16, 185, 129, 0.8)',   
+  'rgba(139, 92, 246, 0.8)',   
+  'rgba(244, 114, 182, 0.8)',  
+  'rgba(56, 178, 172, 0.8)',   
 ];
 
 const convertGraphQLToChartJS = (chart: ChartData) => {
   let labels: string[] = [];
   const data = chart.data.map(point => point.y);
   
-  console.log('🔍 Converting chart data:', {
-    name: chart.name,
-    type: chart.type,
-    hasLabels: !!chart.labels,
-    hasCategories: !!chart.categories,
-    labels: chart.labels,
-    categories: chart.categories,
-    dataLength: chart.data.length
-  });
-  
-  // אם יש קטגוריות/תויות שמורות, השתמש בהן
   if (chart.labels && chart.labels.length > 0) {
     labels = chart.labels;
-    console.log('✅ Using saved labels:', labels);
   } else if (chart.categories && chart.categories.length > 0) {
     labels = chart.categories;
-    console.log('✅ Using saved categories:', labels);
   } else {
-    // ברירת מחדל - נסה להשתמש בשמות משמעותיים
     labels = chart.data.map((_, index) => {
-      // אם זה גרף עוגה, תן שמות קטגוריות ברירת מחדל
       if (chart.type === 'pie') {
         const defaultCategories = [
           'Category A', 'Category B', 'Category C', 'Category D', 
@@ -146,10 +118,9 @@ const convertGraphQLToChartJS = (chart: ChartData) => {
       }
       return `Point ${index + 1}`;
     });
-    console.log('⚠️ Using default labels:', labels);
   }
   
-  const result = {
+  return {
     labels,
     datasets: [{
       label: chart.name,
@@ -163,9 +134,6 @@ const convertGraphQLToChartJS = (chart: ChartData) => {
       borderWidth: 2
     }]
   };
-  
-  console.log('📊 Final chart data:', result);
-  return result;
 };
 
 const getChartOptions = (type: string, title: string) => {
@@ -253,7 +221,6 @@ const ChartsDashboard: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedDataSource, setSelectedDataSource] = useState<string | null>(null);
   const [generatingChart, setGeneratingChart] = useState(false);
-  const [showDebug, setShowDebug] = useState(false);
   const [newChart, setNewChart] = useState<NewChartForm>({
     name: '',
     prompt: '',
@@ -264,6 +231,7 @@ const ChartsDashboard: React.FC = () => {
   const { charts, loading: loadingCharts, error: chartsError } = useAppSelector(state => state.charts);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const { success, error: showError, warning, info } = useToast();
 
   const { data: dataSourcesData, loading: loadingDataSources } = useQuery(GET_DATA_SOURCES, {
     errorPolicy: 'all',
@@ -271,129 +239,30 @@ const ChartsDashboard: React.FC = () => {
 
   const dataSources = useMemo(() => dataSourcesData?.getDataSources?.dataSource || [], [dataSourcesData]);
 
-  // Debug functions
-  const debugLocalStorage = () => {
-    if (!user?.id) return;
-    
-    console.log('🔍 DEBUG: Checking localStorage...');
-    const key = `charts_${user.id}`;
-    const stored = localStorage.getItem(key);
-    
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        console.log('🔍 DEBUG: localStorage data:', {
-          key,
-          count: parsed.length,
-          charts: parsed.map((c: any) => ({ 
-            id: c.id?.slice(0, 8), 
-            name: c.name 
-          }))
-        });
-        alert(`localStorage has ${parsed.length} charts`);
-      } catch (error) {
-        console.error('🔍 DEBUG: localStorage parse error:', error);
-        alert('localStorage parse error - check console');
-      }
-    } else {
-      console.log('🔍 DEBUG: No localStorage data found for key:', key);
-      alert('No localStorage data found');
-    }
-  };
-
-  const debugReduxState = () => {
-    console.log('🔍 DEBUG: Redux charts state:', {
-      count: charts.length,
-      loading: loadingCharts,
-      error: chartsError,
-      charts: charts.map(c => ({
-        id: c.id?.slice(0, 8),
-        name: c.name,
-        isTemp: c.id?.startsWith('temp_')
-      }))
-    });
-    alert(`Redux has ${charts.length} charts - check console for details`);
-  };
-
-  const forceSyncToLocalStorage = () => {
-    if (user?.id) {
-      dispatch(syncWithLocalStorage({ userId: user.id }));
-      alert('Force synced to localStorage');
-    }
-  };
-
-  const forceLoadFromLocalStorage = () => {
-    if (user?.id) {
-      dispatch(loadFromLocalStorage({ userId: user.id }));
-      alert('Force loaded from localStorage');
-    }
-  };
-
   useEffect(() => {
     if (!user) {
       navigate('/login');
       return;
     }
 
-    console.log('🔄 Charts Dashboard: User effect triggered for user:', user.id);
-    
-    // Reset any previous state
+    console.log(' Charts Dashboard: Loading charts for user:', user.id);
+
     dispatch(clearError());
-    
-    // Load from localStorage first for immediate display
+
     dispatch(loadFromLocalStorage({ userId: user.id }));
-    
-    // Then fetch from server to get latest data
+
     const fetchFromServer = async () => {
       try {
-        console.log('📡 Fetching latest charts from server...');
+        console.log(' Fetching charts from server...');
         await dispatch(fetchCharts()).unwrap();
-        console.log('✅ Server fetch completed');
+        console.log(' Charts loaded successfully');
       } catch (error) {
-        console.error('❌ Server fetch failed:', error);
-        // If server fetch fails, we still have localStorage data
+        console.error(' Failed to fetch charts:', error);
       }
     };
     
-    // Small delay to let localStorage load first
-    const timeoutId = setTimeout(fetchFromServer, 100);
-    
-    return () => clearTimeout(timeoutId);
+    fetchFromServer();
   }, [user, navigate, dispatch]);
-
-  // Effect to monitor charts state changes
-  useEffect(() => {
-    console.log('📊 Charts state update:', {
-      totalCharts: charts.length,
-      chartNames: charts.map(c => ({ 
-        id: c.id?.slice(0, 8), 
-        name: c.name,
-        isTemp: c.id?.startsWith('temp_')
-      })),
-      loading: loadingCharts,
-      error: chartsError
-    });
-  }, [charts, loadingCharts, chartsError]);
-
-  // Effect to sync to localStorage when charts change
-  useEffect(() => {
-    if (user?.id && charts.length >= 0) { // Allow syncing even with 0 charts
-      console.log('💾 Auto-syncing charts to localStorage');
-      dispatch(syncWithLocalStorage({ userId: user.id }));
-    }
-  }, [charts, user?.id, dispatch]);
-
-  // Effect to periodically sync localStorage (every 30 seconds)
-  useEffect(() => {
-    if (!user?.id) return;
-    
-    const intervalId = setInterval(() => {
-      console.log('🔄 Periodic localStorage sync');
-      dispatch(syncWithLocalStorage({ userId: user.id }));
-    }, 30000); // 30 seconds
-    
-    return () => clearInterval(intervalId);
-  }, [user?.id, dispatch]);
 
   useEffect(() => {
     if (dataSources.length > 0 && !selectedDataSource) {
@@ -482,19 +351,19 @@ const ChartsDashboard: React.FC = () => {
   };
 
   const [generateChartMutation] = useMutation(GENERATE_CHART_QUERY);
+  const [createChartMutation] = useMutation(CREATE_CHART_MUTATION);
 
   const handleGenerateChart = async () => {
     if (!newChart.name.trim() || !newChart.prompt.trim() || !selectedDataSource) {
-      alert("Please fill in all fields and select a data source");
+      warning("Please fill in all fields and select a data source");
       return;
     }
 
-    const tempId = `temp_${Date.now()}`;
-    let tempChartAdded = false;
-
     try {
-      console.log("🤖 Starting chart generation process...");
+      console.log("Starting chart generation...");
       setGeneratingChart(true);
+      setIsCreateModalOpen(false);
+      info(`Creating chart "${newChart.name}"...`);
       
       const selectedDS = dataSources.find(ds => ds.id === selectedDataSource);
       if (!selectedDS) {
@@ -512,23 +381,19 @@ const ChartsDashboard: React.FC = () => {
         }
       });
 
-      console.log("🔍 Raw AI response:", data);
-
       if (!data?.generateChart) {
         throw new Error('No chart data received from AI');
       }
 
       const result = JSON.parse(data.generateChart);
-      console.log('📊 Parsed AI result:', result);
+      console.log(' AI result processed');
       
       let chartData: ChartPoint[] = [];
       let matrixData;
       let labels: string[] = [];
 
-      // Process AI response
       if (result.promptResult && result.promptResult.input) {
         const aiChart = result.promptResult.input;
-        console.log('🎯 AI Chart Config:', aiChart);
         
         if (aiChart.chartType === 'number' || aiChart.chartType === 'NUMBER') {
           if (aiChart.chart && aiChart.chart.value !== undefined) {
@@ -549,9 +414,6 @@ const ChartsDashboard: React.FC = () => {
         } 
         else if (['bar', 'line', 'pie', 'BAR', 'LINE', 'PIE', 'bar chart', 'line chart', 'pie chart'].includes(aiChart.chartType)) {
           if (aiChart.chart && aiChart.chart.data && Array.isArray(aiChart.chart.data)) {
-            console.log('📊 Processing AI chart data:', aiChart.chart.data);
-            
-            // Extract labels
             if (aiChart.chart.xAxis) {
               labels = aiChart.chart.data.map((item: any) => {
                 const labelValue = item[aiChart.chart.xAxis];
@@ -594,59 +456,8 @@ const ChartsDashboard: React.FC = () => {
             });
           }
         }
-      } else {
-        // Fallback logic
-        console.log('📊 Using fallback with raw query data');
-        if (result.queryResult && result.queryResult.length > 0) {
-          const firstRow = result.queryResult[0];
-          const keys = Object.keys(firstRow);
-          
-          const labelKey = keys.find(key => 
-            key.toLowerCase().includes('name') ||
-            key.toLowerCase().includes('category') ||
-            key.toLowerCase().includes('type') ||
-            key.toLowerCase().includes('label') ||
-            typeof firstRow[key] === 'string'
-          );
-          
-          if (labelKey) {
-            labels = result.queryResult.map((row: any) => String(row[labelKey]));
-          } else {
-            if (newChart.type === 'pie') {
-              labels = result.queryResult.map((_: any, index: number) => {
-                const categoryNames = ['Sales', 'Marketing', 'Support', 'Development', 'HR', 'Finance', 'Operations', 'Research'];
-                return categoryNames[index] || `Category ${index + 1}`;
-              });
-            } else {
-              labels = result.queryResult.map((_: any, index: number) => `Item ${index + 1}`);
-            }
-          }
-          
-          if (newChart.type === 'number') {
-            const firstValue = Object.values(firstRow)[0] as number;
-            chartData = [{ x: 0, y: firstValue || 0 }];
-            labels = [newChart.name];
-          } else if (newChart.type === 'matrix') {
-            const columns = Object.keys(firstRow);
-            const matrix = result.queryResult.map((row: any) => Object.values(row));
-            chartData = [];
-            matrixData = {
-              title: newChart.name,
-              matrix: matrix,
-              rowLabels: result.queryResult.map((_: any, index: number) => `Row ${index + 1}`),
-              columnLabels: columns
-            };
-          } else {
-            chartData = result.queryResult.map((row: any, index: number) => {
-              const values = Object.values(row).filter(v => typeof v === 'number');
-              const yValue = values[0] as number || 0;
-              return { x: index, y: yValue };
-            });
-          }
-        }
       }
 
-      // Create example data if still empty
       if (chartData.length === 0 && !matrixData) {
         console.log('⚠️ No data found, creating example data');
         if (newChart.type === 'number') {
@@ -665,26 +476,6 @@ const ChartsDashboard: React.FC = () => {
         }
       }
 
-      // Create temporary chart for immediate display
-      const tempChart: ChartData = {
-        id: tempId,
-        name: newChart.name,
-        type: newChart.type,
-        userId: user?.id || "1",
-        projectId: selectedDS.projectId,
-        data: chartData,
-        labels: labels.length > 0 ? labels : undefined,
-        matrixData: matrixData,
-        createdAt: new Date().toISOString()
-      };
-
-      console.log('🎯 Adding temporary chart to Redux:', tempChart);
-      
-      // Add optimistic chart to Redux
-      dispatch(addChartOptimistic(tempChart));
-      tempChartAdded = true;
-      
-      // Prepare data for server
       const serverChartData = {
         name: newChart.name,
         type: newChart.type,
@@ -695,50 +486,34 @@ const ChartsDashboard: React.FC = () => {
         categories: labels.length > 0 ? labels : undefined
       };
 
-      console.log('💾 Saving chart to server:', serverChartData);
+      console.log(' Saving chart to server...');
 
-      // Save to server using Redux action
-      const serverResponse = await dispatch(createChart(serverChartData)).unwrap();
+      const serverResponse = await createChartMutation({
+        variables: { input: serverChartData }
+      });
       
-      console.log('✅ Chart saved to server successfully:', serverResponse);
-      
-      // Replace temporary chart with real chart
-      if (serverResponse && serverResponse.id) {
-        console.log('🔄 Replacing temporary chart with server chart');
-        dispatch(replaceTemporaryChart({
-          tempId: tempId,
-          realChart: {
-            ...serverResponse,
-            labels: serverResponse.labels || labels,
-            matrixData: matrixData
-          }
-        }));
+      if (!serverResponse.data?.createChart) {
+        throw new Error('No chart data returned from server');
       }
       
-      // Force sync to localStorage
+      console.log(' Chart saved successfully!');
+      
+      await dispatch(fetchCharts()).unwrap();
+      
       if (user?.id) {
-        console.log('💾 Syncing to localStorage');
         dispatch(syncWithLocalStorage({ userId: user.id }));
       }
       
       setGeneratingChart(false);
-      setIsCreateModalOpen(false);
       setNewChart({ name: '', prompt: '', type: 'bar' });
       
-      console.log('✅ Chart creation process completed successfully');
-      alert("Chart created and saved successfully!");
+      success(`Chart "${newChart.name}" created successfully!`);
 
     } catch (error: any) {
-      console.error("❌ Chart creation failed:", error);
-      
-      // Remove temporary chart if it was added
-      if (tempChartAdded) {
-        console.log('🗑️ Removing temporary chart due to error');
-        dispatch(removeChartOptimistic(tempId));
-      }
-      
+      console.error(" Chart creation failed:", error);
       setGeneratingChart(false);
-      alert(`Failed to create chart: ${error.message}`);
+      setNewChart({ name: '', prompt: '', type: 'bar' });
+      showError(`Failed to create chart "${newChart.name}": ${error.message}`);
     }
   };
 
@@ -746,23 +521,18 @@ const ChartsDashboard: React.FC = () => {
     if (!confirm("Are you sure you want to delete this chart?")) return;
 
     try {
-      console.log("🗑️ Deleting chart:", chartId);
+      console.log(" Deleting chart:", chartId.slice(0, 8));
       
-      // מחיקה אופטימיסטית מ-Redux
-      dispatch(removeChartOptimistic(chartId));
-      
-      // מחיקה מהשרת באמצעות Redux
       await dispatch(deleteChartAction(chartId)).unwrap();
+      
+      await dispatch(fetchCharts()).unwrap();
 
-      console.log("✅ Chart deleted successfully");
-      alert("Chart deleted successfully!");
+      console.log(" Chart deleted successfully");
+      success("Chart deleted successfully!");
       
     } catch (error: any) {
-      console.error("❌ Failed to delete chart:", error);
-      
-      // במקרה של שגיאה, טען מחדש מהשרת
-      dispatch(fetchCharts());
-      alert(`Failed to delete chart: ${error.message}`);
+      console.error(" Failed to delete chart:", error);
+      showError(`Failed to delete chart: ${error.message}`);
     }
   };
 
@@ -825,13 +595,6 @@ const ChartsDashboard: React.FC = () => {
   const headerActions = (
     <div className="flex items-center gap-2">
       <button
-        onClick={() => setShowDebug(!showDebug)}
-        className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-        title="Toggle Debug Panel"
-      >
-        <Bug size={16} />
-      </button>
-      <button
         onClick={() => setIsCreateModalOpen(true)}
         className="p-2 lg:px-6 lg:py-3 text-white rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-90 transition-all shadow-lg flex items-center gap-2"
       >
@@ -875,45 +638,6 @@ const ChartsDashboard: React.FC = () => {
             loading={loadingDataSources}
           />
 
-          {/* Debug Panel */}
-          {showDebug && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <h3 className="text-lg font-bold text-yellow-800 mb-3">Debug Panel</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
-                <button
-                  onClick={debugLocalStorage}
-                  className="px-3 py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
-                >
-                  Check localStorage
-                </button>
-                <button
-                  onClick={debugReduxState}
-                  className="px-3 py-2 bg-green-500 text-white rounded text-sm hover:bg-green-600"
-                >
-                  Check Redux State
-                </button>
-                <button
-                  onClick={forceSyncToLocalStorage}
-                  className="px-3 py-2 bg-purple-500 text-white rounded text-sm hover:bg-purple-600"
-                >
-                  Force Sync to localStorage
-                </button>
-                <button
-                  onClick={forceLoadFromLocalStorage}
-                  className="px-3 py-2 bg-orange-500 text-white rounded text-sm hover:bg-orange-600"
-                >
-                  Force Load from localStorage
-                </button>
-              </div>
-              <div className="mt-3 text-sm text-yellow-700">
-                <p><strong>Charts in Redux:</strong> {charts.length}</p>
-                <p><strong>Loading:</strong> {loadingCharts ? 'Yes' : 'No'}</p>
-                <p><strong>Error:</strong> {chartsError || 'None'}</p>
-                <p><strong>User ID:</strong> {user?.id || 'None'}</p>
-              </div>
-            </div>
-          )}
-
           {chartsError && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
               <div className="flex items-center gap-2">
@@ -947,15 +671,9 @@ const ChartsDashboard: React.FC = () => {
                       <div className="flex-1">
                         <h3 className="font-semibold text-slate-800">{chart.name}</h3>
                         <p className="text-sm text-slate-500">
-                          ID: {chart.id.slice(0, 8)}...
-                          <span className="ml-2 bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-xs capitalize">
+                          <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-xs capitalize">
                             {chart.type}
                           </span>
-                          {chart.id.startsWith('temp_') && (
-                            <span className="ml-2 bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full text-xs">
-                              Temporary
-                            </span>
-                          )}
                           {chart.labels && chart.labels.length > 0 && (
                             <span className="ml-2 bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs">
                               {chart.labels.length} labels
@@ -991,7 +709,6 @@ const ChartsDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal for creating charts */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -1072,18 +789,18 @@ const ChartsDashboard: React.FC = () => {
                   value={newChart.prompt}
                   onChange={(e) => setNewChart({ ...newChart, prompt: e.target.value })}
                   className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
-                  placeholder="Describe your visualization... (e.g., 'Show sales by product category' - this will automatically extract category names for labels)"
+                  placeholder="Describe your visualization... (e.g., 'Show sales by product category')"
                   rows={3}
                   disabled={generatingChart}
                 />
                 <p className="text-xs text-slate-500 mt-2">
-                  💡 Tip: For pie/bar charts, mention specific categories to get meaningful labels instead of "Point 1", "Point 2"
+                   Tip: Be specific about what data you want to see
                 </p>
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  💡 Try these examples:
+                   Try these examples:
                 </label>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {samplePrompts.map((sample, index) => (
@@ -1099,18 +816,6 @@ const ChartsDashboard: React.FC = () => {
                   ))}
                 </div>
               </div>
-
-              {generatingChart && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                    <div>
-                      <p className="text-blue-800 font-medium">Generating your chart...</p>
-                      <p className="text-blue-600 text-sm">This may take a few moments. Please don't close this window.</p>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="p-6 border-t bg-slate-50 flex gap-3">
@@ -1119,7 +824,7 @@ const ChartsDashboard: React.FC = () => {
                 disabled={generatingChart}
                 className="flex-1 px-6 py-3 border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {generatingChart ? 'Cancel' : 'Cancel'}
+                Cancel
               </button>
               <button
                 onClick={handleGenerateChart}

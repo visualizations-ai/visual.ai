@@ -34,7 +34,6 @@ interface PurchaseRecommendation {
   averageMonthlyUsage: number;
 }
 
-// Mock data for demonstration
 const mockRecommendations: PurchaseRecommendation[] = [
   {
     id: "1",
