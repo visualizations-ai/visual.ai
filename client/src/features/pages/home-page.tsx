@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { AppLayout } from "../../shared/app-layout";
-import { MessageSquare, Send, Loader2, Database, Settings, ChevronUp, ArrowUp, RefreshCw } from "lucide-react";
+import { MessageSquare, Send, Loader2, Database, Settings, ChevronUp, ArrowUp, RefreshCw, Copy, Check } from "lucide-react";
 import { useQuery } from "@apollo/client";
 import { GET_DATA_SOURCES } from "../../graphql/data-sources";
 
@@ -13,6 +13,7 @@ export const HomePage = () => {
   const [progress, setProgress] = useState(0);
   const [selectedDataSource, setSelectedDataSource] = useState<string | null>(null);
   const [showDataSourceSelector, setShowDataSourceSelector] = useState(false);
+  const [copiedStates, setCopiedStates] = useState<{ [key: number]: boolean }>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const { data: dataSourcesData } = useQuery(GET_DATA_SOURCES, {
@@ -29,6 +30,7 @@ export const HomePage = () => {
   const clearChat = () => {
     setMessages([]);
     setInput("");
+    setCopiedStates({}); // נקה גם את מצבי ההעתקה
   };
 
   useEffect(() => {
@@ -60,6 +62,27 @@ export const HomePage = () => {
       });
     }, 200);
     return interval;
+  };
+
+  // פונקציה להעתקת SQL
+  const copyToClipboard = async (text: string, messageIndex: number) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedStates(prev => ({ ...prev, [messageIndex]: true }));
+      
+      // החזר למצב רגיל אחרי 2 שניות
+      setTimeout(() => {
+        setCopiedStates(prev => ({ ...prev, [messageIndex]: false }));
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy text:', error);
+    }
+  };
+
+  // פונקציה לחילוץ SQL מתוך התשובה
+  const extractSQLFromMessage = (content: string): string | null => {
+    const sqlMatch = content.match(/```sql\n([\s\S]*?)\n```/);
+    return sqlMatch ? sqlMatch[1].trim() : null;
   };
 
   const handleSubmit = async (e?: React.FormEvent, customInput?: string) => {
@@ -119,7 +142,7 @@ export const HomePage = () => {
       
       if (data.errors) {
         answer = `I apologize, but I encountered an error: ${data.errors[0]?.message || 'Unknown error'}`;
-      } else       if (data.data?.getSQLQueryData) {
+      } else if (data.data?.getSQLQueryData) {
         try {
           const result = JSON.parse(data.data.getSQLQueryData);
           
@@ -280,15 +303,53 @@ export const HomePage = () => {
                       ) : (
                         <div className="flex justify-start">
                           <div className="text-slate-700 p-3 w-full text-sm break-words">
-                            <div 
-                              className="prose prose-sm max-w-none"
-                              dangerouslySetInnerHTML={{
-                                __html: msg.content
-                                  .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                                  .replace(/```sql\n([\s\S]*?)\n```/g, '<div class="bg-slate-100 p-3 rounded-lg mt-2 mb-2 font-mono text-xs"><strong>SQL Query:</strong><br/><code class="text-blue-600">$1</code></div>')
-                                  .replace(/\n/g, '<br/>')
-                              }}
-                            />
+                            <div className="prose prose-sm max-w-none">
+                              {/* עיבוד התוכן עם כפתור העתקה */}
+                              {msg.content.split(/(\*\*SQL Query Generated:\*\*\n```sql\n[\s\S]*?\n```)/g).map((part, partIndex) => {
+                                // בדיקה אם זה חלק של SQL
+                                const sqlMatch = part.match(/\*\*SQL Query Generated:\*\*\n```sql\n([\s\S]*?)\n```/);
+                                if (sqlMatch) {
+                                  const sqlQuery = sqlMatch[1];
+                                  return (
+                                    <div key={partIndex} className="bg-slate-100 p-3 rounded-lg mt-2 mb-2 font-mono text-xs relative group">
+                                      <div className="flex items-center justify-between mb-2">
+                                        <strong className="text-slate-800">SQL Query:</strong>
+                                        <button
+                                          onClick={() => copyToClipboard(sqlQuery, idx)}
+                                          className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1.5 hover:bg-slate-200 rounded-md flex items-center gap-1 text-xs"
+                                          title="Copy SQL query"
+                                        >
+                                          {copiedStates[idx] ? (
+                                            <>
+                                              <Check className="w-3 h-3 text-green-600" />
+                                              <span className="text-green-600">Copied!</span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Copy className="w-3 h-3 text-slate-600" />
+                                              <span className="text-slate-600">Copy</span>
+                                            </>
+                                          )}
+                                        </button>
+                                      </div>
+                                      <code className="text-blue-600 block">{sqlQuery}</code>
+                                    </div>
+                                  );
+                                } else {
+                                  // עיבוד רגיל של טקסט
+                                  return (
+                                    <div
+                                      key={partIndex}
+                                      dangerouslySetInnerHTML={{
+                                        __html: part
+                                          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                          .replace(/\n/g, '<br/>')
+                                      }}
+                                    />
+                                  );
+                                }
+                              })}
+                            </div>
                           </div>
                         </div>
                       )}
