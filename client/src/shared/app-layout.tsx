@@ -9,7 +9,6 @@ interface AppLayoutProps {
   children: React.ReactNode;
   title: string;
   subtitle?: string;
-  icon: React.ReactNode;
   headerActions?: React.ReactNode;
   onTitleClick?: () => void;
   titleClickable?: boolean;
@@ -19,7 +18,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   children,
   title,
   subtitle,
-  icon,
   headerActions,
   onTitleClick,
   titleClickable = false
@@ -83,7 +81,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 }`}
                 title={titleClickable ? "Start new conversation" : undefined}
               >
-                {icon}
                 
               <div className="min-w-0 flex-1">
                   <h1 className="animate__animated animate__slideInRight text-lg font-semibold text-slate-800 truncate">
@@ -121,11 +118,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             }`}
             title={titleClickable ? "Start new conversation" : undefined}
           >
-            <div className={`bg-gradient-to-br from-slate-900 to-slate-800 p-3 rounded-xl shadow-sm transition-transform ${
-              titleClickable ? 'group-hover:scale-105' : ''
-            }`}>
-              {icon}
-            </div>
             
            <div>
   <h1

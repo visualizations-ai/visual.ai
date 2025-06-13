@@ -11,6 +11,7 @@ import {
   Edit3,
   Trash2,
   RefreshCw,
+  X
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAppSelector, useAppDispatch } from "../../hooks/redux-hooks";
@@ -55,7 +56,6 @@ const DataSources = () => {
   const { user } = useAppSelector((state) => state.auth);
   const {
     dataSources,
-    selectedDataSource,
     loading: loadingDataSources,
     error: dataSourceError
   } = useAppSelector(state => state.dataSources);
@@ -66,7 +66,7 @@ const DataSources = () => {
   const [formData, setFormData] = useState<DataSourceForm>({
     projectId: "",
     host: "",
-    port: "5432",
+    port: "", 
     databaseName: "",
     username: "",
     password: "",
@@ -107,7 +107,7 @@ const DataSources = () => {
     }
   };
 
-  const { data: dataSourcesData, loading: queryLoading, refetch: refetchDataSources } = useQuery(GET_DATA_SOURCES, {
+  const { data: dataSourcesData } = useQuery(GET_DATA_SOURCES, {
     errorPolicy: "all",
     fetchPolicy: "cache-and-network",
   });
@@ -350,7 +350,7 @@ const DataSources = () => {
     setFormData({
       projectId: "",
       host: "",
-      port: "5432",
+      port: "", 
       databaseName: "",
       username: "",
       password: "",
@@ -364,8 +364,6 @@ const DataSources = () => {
     dispatch(fetchDataSources());
   };
 
-  const inputClass =
-    "w-full p-3 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder-slate-400";
 
   const headerActions = (
     <div className="flex items-center gap-2 sm:gap-3">
@@ -641,20 +639,29 @@ const DataSources = () => {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700 max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-slate-700">
-              <h2 className="text-xl font-semibold text-white mb-2">
-                Add New Data Source
-              </h2>
-              <p className="text-slate-400 text-sm">
-                Connect to your PostgreSQL database
-              </p>
+        <div className="fixed inset-0 backdrop-blur-sm bg-slate-900/50 flex items-center justify-center z-50 p-4 transition-all">
+          <div className="bg-white/90 backdrop-blur-lg rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-200/50">
+            <div className="p-6 border-b border-slate-200/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800">
+                    Add New Data Source
+                  </h2>
+                  <p className="text-slate-600 mt-1">Connect to your PostgreSQL database</p>
+                </div>
+                <button
+                  onClick={closeModal}
+                  className="p-2 hover:bg-slate-100/80 rounded-lg transition-colors"
+                >
+                  <X size={24} className="text-slate-500" />
+                </button>
+              </div>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-6">
+           
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Project ID *
                 </label>
                 <input
@@ -662,14 +669,15 @@ const DataSources = () => {
                   name="projectId"
                   value={formData.projectId}
                   onChange={handleInputChange}
-                  className={inputClass}
+                  className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
                   placeholder="Enter project identifier"
                   required
                 />
               </div>
 
+           
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Host *
                 </label>
                 <input
@@ -677,28 +685,31 @@ const DataSources = () => {
                   name="host"
                   value={formData.host}
                   onChange={handleInputChange}
-                  className={inputClass}
+                  className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
                   placeholder="localhost or IP address"
                   required
                 />
               </div>
 
+            
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Port
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Port *
                 </label>
                 <input
                   type="text"
                   name="port"
                   value={formData.port}
                   onChange={handleInputChange}
-                  className={inputClass}
-                  placeholder="5432"
+                  className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
+                  placeholder="Enter database port "
+                  required
                 />
               </div>
 
+            
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Database Name *
                 </label>
                 <input
@@ -706,14 +717,15 @@ const DataSources = () => {
                   name="databaseName"
                   value={formData.databaseName}
                   onChange={handleInputChange}
-                  className={inputClass}
+                  className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
                   placeholder="Enter database name"
                   required
                 />
               </div>
 
+           
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Username *
                 </label>
                 <input
@@ -721,14 +733,15 @@ const DataSources = () => {
                   name="username"
                   value={formData.username}
                   onChange={handleInputChange}
-                  className={inputClass}
+                  className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
                   placeholder="Database username"
                   required
                 />
               </div>
 
+           
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Password *
                 </label>
                 <div className="relative">
@@ -737,14 +750,14 @@ const DataSources = () => {
                     name="password"
                     value={formData.password}
                     onChange={handleInputChange}
-                    className={inputClass}
+                    className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white/50 backdrop-blur-sm pr-12"
                     placeholder="Database password"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-300"
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
                   >
                     {showPassword ? (
                       <EyeOff className="w-5 h-5" />
@@ -755,47 +768,49 @@ const DataSources = () => {
                 </div>
               </div>
 
+             
               {connectionMessage && (
                 <div
-                  className={`p-3 rounded-lg border ${
+                  className={`p-4 rounded-xl border backdrop-blur-sm ${
                     connectionStatus === "success"
-                      ? "bg-green-900/50 border-green-700 text-green-300"
-                      : "bg-red-900/50 border-red-700 text-red-300"
+                      ? "bg-green-50 border-green-200 text-green-700"
+                      : "bg-red-50 border-red-200 text-red-700"
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     {connectionStatus === "success" ? (
-                      <CheckCircle className="w-4 h-4" />
+                      <CheckCircle className="w-5 h-5" />
                     ) : (
-                      <AlertCircle className="w-4 h-4" />
+                      <AlertCircle className="w-5 h-5" />
                     )}
-                    <span className="text-sm">{connectionMessage}</span>
+                    <span>{connectionMessage}</span>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="p-6 border-t border-slate-700 flex flex-col sm:flex-row gap-3">
+            
+            <div className="p-6 border-t border-slate-200/50 bg-slate-50/50 flex flex-col sm:flex-row gap-3">
               <button
                 onClick={testConnection}
                 disabled={testingConnection}
-                className="flex items-center justify-center gap-2 px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 min-h-[44px]"
+                className="flex items-center justify-center gap-2 px-6 py-3 text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-50"
               >
-                <TestTube className="w-4 h-4" />
+                <TestTube className="w-5 h-5" />
                 {testingConnection ? "Testing..." : "Test Connection"}
               </button>
 
-              <div className="flex gap-2 flex-1">
+              <div className="flex gap-3 flex-1 sm:justify-end">
                 <button
                   onClick={closeModal}
-                  className="flex-1 px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-700 transition-colors min-h-[44px]"
+                  className="flex-1 sm:flex-none px-6 py-3 text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSubmit}
                   disabled={creatingDatasource || connectionStatus !== "success"}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+                  className="flex-1 sm:flex-none px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50"
                 >
                   {creatingDatasource ? "Creating..." : "Create"}
                 </button>

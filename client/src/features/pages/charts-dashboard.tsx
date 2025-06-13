@@ -111,7 +111,7 @@ const convertGraphQLToChartJS = (chart: ChartData) => {
     labels = chart.data.map((_, index) => {
       if (chart.type === 'pie') {
         const defaultCategories = [
-          'Category A', 'Category B', 'Category C', 'Category D', 
+          'Category A', 'Category B', 'Category D', 
           'Category E', 'Category F', 'Category G', 'Category H'
         ];
         return defaultCategories[index] || `Category ${index + 1}`;
@@ -370,7 +370,7 @@ const ChartsDashboard: React.FC = () => {
         throw new Error("Selected data source not found");
       }
 
-      console.log("📡 Calling AI service...");
+      console.log("Calling AI service...");
       const { data } = await generateChartMutation({
         variables: {
           info: {
@@ -542,15 +542,6 @@ const ChartsDashboard: React.FC = () => {
     setGeneratingChart(false);
   };
 
-  const handleSamplePrompt = (prompt: any) => {
-    setNewChart({
-      ...newChart,
-      prompt: prompt.prompt,
-      type: prompt.type,
-      name: prompt.prompt.split(' ').slice(0, 4).join(' ')
-    });
-  };
-
   const exportChart = (chart: ChartData) => {
     const dataStr = JSON.stringify(chart, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -563,34 +554,6 @@ const ChartsDashboard: React.FC = () => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
-
-  const samplePrompts = [
-    {
-      type: 'number' as const,
-      prompt: "Show total sales amount for this quarter",
-      icon: "🔢"
-    },
-    {
-      type: 'bar' as const,
-      prompt: "Show me the top 10 customers by total purchase amount",
-      icon: "📊"
-    },
-    {
-      type: 'line' as const,
-      prompt: "Display sales trends over the last 12 months",
-      icon: "📈"
-    },
-    {
-      type: 'pie' as const,
-      prompt: "Break down revenue by product category",
-      icon: "🥧"
-    },
-    {
-      type: 'matrix' as const,
-      prompt: "Create sales performance matrix by region and month",
-      icon: "🗂️"
-    }
-  ];
 
   const headerActions = (
     <div className="flex items-center gap-2">
@@ -609,7 +572,6 @@ const ChartsDashboard: React.FC = () => {
       <AppLayout
         title="Charts Dashboard"
         subtitle="Create beautiful charts with AI"
-        icon={<BarChart3 className="text-white lg:text-white text-slate-700 lg:w-8 lg:h-8" size={24} />}
         headerActions={headerActions}
       >
         <div className="bg-gradient-to-b from-indigo-50/90 to-slate-50/90 min-h-full flex items-center justify-center">
@@ -626,7 +588,6 @@ const ChartsDashboard: React.FC = () => {
     <AppLayout
       title="Charts Dashboard"
       subtitle="Create beautiful charts with AI"
-      icon={<BarChart3 className="text-white lg:text-white text-slate-700 lg:w-8 lg:h-8" size={24} />}
       headerActions={headerActions}
     >
       <div className="bg-gradient-to-b from-indigo-50/90 to-slate-50/90 min-h-full">
@@ -710,22 +671,19 @@ const ChartsDashboard: React.FC = () => {
       </div>
 
       {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b bg-gradient-to-r from-indigo-50 to-purple-50">
+        <div className="fixed inset-0 backdrop-blur-sm bg-slate-900/50 flex items-center justify-center z-50 p-4 transition-all">
+          <div className="bg-white/90 backdrop-blur-lg rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-200/50">
+            <div className="p-6 border-b border-slate-200/50 backdrop-blur-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                    <Sparkles className="text-indigo-600" size={24} />
-                    Create Chart with AI
+                  <h2 className="text-2xl font-bold text-slate-800">
+                    Create New Chart
                   </h2>
-                  <p className="text-slate-600 mt-1">Describe what you want to visualize</p>
+                  <p className="text-slate-600 mt-1">Enter your chart details</p>
                 </div>
                 <button
                   onClick={handleCancelCreate}
-                  disabled={generatingChart}
-                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
-                  title="Cancel creation"
+                  className="p-2 hover:bg-slate-100/80 rounded-lg transition-colors"
                 >
                   <X size={24} />
                 </button>
@@ -733,33 +691,44 @@ const ChartsDashboard: React.FC = () => {
             </div>
 
             <div className="p-6 space-y-6">
+             
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Chart Name *
+                  Chart Name
                 </label>
                 <input
                   type="text"
                   value={newChart.name}
                   onChange={(e) => setNewChart({ ...newChart, name: e.target.value })}
                   className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="e.g., Monthly Sales Report"
-                  disabled={generatingChart}
+                  placeholder="Enter chart name"
                 />
               </div>
 
+             
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Chart Type *
+                  Chart Type
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col space-y-2"> 
                   {[
-                    { value: 'number', label: '🔢 Number Display' },
-                    { value: 'bar', label: '📊 Bar Chart' },
-                    { value: 'line', label: '📈 Line Chart' },
-                    { value: 'pie', label: '🥧 Pie Chart' },
-                    { value: 'matrix', label: '🗂️ Matrix/Table' }
+                    { value: 'number', label: 'Number Display' },
+                    { value: 'bar', label: 'Bar Chart' },
+                    { value: 'line', label: 'Line Chart' },
+                    { value: 'pie', label: 'Pie Chart' },
+                    { value: 'matrix', label: 'Matrix/Table' }
                   ].map((type) => (
-                    <label key={type.value} className="cursor-pointer">
+                    <label 
+                      key={type.value} 
+                      className={`
+                        cursor-pointer relative p-4 border-2 rounded-xl transition-all
+                        flex items-center gap-3
+                        ${newChart.type === type.value 
+                          ? 'border-[#7B7EF4] bg-[#7B7EF4]/5' 
+                          : 'border-slate-200 hover:border-[#7B7EF4]/50 bg-white'
+                        }
+                      `}
+                    >
                       <input
                         type="radio"
                         name="chartType"
@@ -767,81 +736,55 @@ const ChartsDashboard: React.FC = () => {
                         checked={newChart.type === type.value}
                         onChange={(e) => setNewChart({ ...newChart, type: e.target.value as any })}
                         className="sr-only"
-                        disabled={generatingChart}
                       />
-                      <div className={`p-3 border-2 rounded-lg text-center transition-all ${
-                        newChart.type === type.value 
-                          ? 'border-indigo-500 bg-indigo-50' 
-                          : 'border-slate-200 hover:border-indigo-300'
-                      } ${generatingChart ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                        {type.label}
+                      <div className="flex items-center gap-3 w-full">
+                        <div className={`w-2 h-2 rounded-full ${
+                          newChart.type === type.value 
+                            ? 'bg-[#7B7EF4]' 
+                            : 'bg-slate-300'
+                        }`} />
+                        <span className={`text-sm font-medium ${
+                          newChart.type === type.value 
+                            ? 'text-[#7B7EF4]' 
+                            : 'text-slate-600'
+                        }`}>
+                          {type.label}
+                        </span>
                       </div>
                     </label>
                   ))}
                 </div>
               </div>
 
+              
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  What do you want to see? *
+                  Description
                 </label>
                 <textarea
                   value={newChart.prompt}
                   onChange={(e) => setNewChart({ ...newChart, prompt: e.target.value })}
                   className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
-                  placeholder="Describe your visualization... (e.g., 'Show sales by product category')"
+                  placeholder="Describe what you want to visualize..."
                   rows={3}
-                  disabled={generatingChart}
                 />
-                <p className="text-xs text-slate-500 mt-2">
-                   Tip: Be specific about what data you want to see
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                   Try these examples:
-                </label>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {samplePrompts.map((sample, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleSamplePrompt(sample)}
-                      disabled={generatingChart}
-                      className="w-full text-left p-3 border rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <span className="mr-2">{sample.icon}</span>
-                      <span className="text-sm">{sample.prompt}</span>
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
 
+          
             <div className="p-6 border-t bg-slate-50 flex gap-3">
               <button
                 onClick={handleCancelCreate}
-                disabled={generatingChart}
-                className="flex-1 px-6 py-3 border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-6 py-3 border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleGenerateChart}
-                disabled={generatingChart || !newChart.name || !newChart.prompt || !selectedDataSource}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                disabled={!newChart.name || !newChart.prompt || !selectedDataSource}
+                className="flex-1 px-6 py-3 bg-[#7B7EF4] hover:bg-[#6B6EE4] text-white rounded-lg transition-colors shadow-lg shadow-[#7B7EF4]/20 disabled:opacity-50"
               >
-                {generatingChart ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Play size={20} />
-                    Generate Chart
-                  </>
-                )}
+                {generatingChart ? 'Generating...' : 'Generate Chart'}
               </button>
             </div>
           </div>

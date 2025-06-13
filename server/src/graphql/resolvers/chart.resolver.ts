@@ -13,7 +13,6 @@ function entityDataToPoints(data: [number, number][]): IPoint[] {
   return data.map(([x, y]) => ({ x, y }));
 }
 
-// Helper function to convert null to undefined for labels/categories
 function convertLabelsAndCategories(labels: string[] | null | undefined, categories: string[] | null | undefined) {
   return {
     labels: labels || undefined,
@@ -27,7 +26,7 @@ export const ChartResolvers = {
       const { req } = contextValue;
       authenticateGraphQLRoute(req);
 
-      console.log('📊 Resolver: Getting chart:', args.id.slice(0, 8));
+      console.log('Resolver: Getting chart:', args.id.slice(0, 8));
 
       const chartEntity = await chartService.getChart(args.id, `${req.currentUser?.userId}`);
       const { labels, categories } = convertLabelsAndCategories(chartEntity.labels, chartEntity.categories);
@@ -45,7 +44,7 @@ export const ChartResolvers = {
         updatedAt: chartEntity.updatedAt
       };
 
-      console.log('📊 Resolver: Returning chart:', {
+      console.log('Resolver: Returning chart:', {
         id: result.id.slice(0, 8),
         name: result.name,
         hasLabels: !!(result.labels && result.labels.length > 0),
@@ -59,7 +58,7 @@ export const ChartResolvers = {
       const { req } = contextValue;
       authenticateGraphQLRoute(req);
 
-      console.log('📊 Resolver: Getting all charts for user:', req.currentUser?.userId);
+      console.log('Resolver: Getting all charts for user:', req.currentUser?.userId);
 
       const charts = await chartService.getCharts(`${req.currentUser?.userId}`);
       
@@ -80,7 +79,7 @@ export const ChartResolvers = {
         };
       });
 
-      console.log('📊 Resolver: Returning charts:', {
+      console.log('Resolver: Returning charts:', {
         count: results.length,
         charts: results.map(c => ({
           id: c.id.slice(0, 8),
@@ -103,7 +102,7 @@ export const ChartResolvers = {
       const { req } = contextValue;
       authenticateGraphQLRoute(req);
 
-      console.log('📊 Resolver: Creating chart with input:', {
+      console.log('Resolver: Creating chart with input:', {
         name: args.input.name,
         type: args.input.type,
         userId: args.input.userId,
@@ -131,7 +130,7 @@ export const ChartResolvers = {
         updatedAt: chartEntity.updatedAt
       };
 
-      console.log('📊 Resolver: Chart created successfully:', {
+      console.log('Resolver: Chart created successfully:', {
         id: result.id.slice(0, 8),
         name: result.name,
         hasLabels: !!(result.labels && result.labels.length > 0),
@@ -151,7 +150,7 @@ export const ChartResolvers = {
       const { req } = contextValue;
       authenticateGraphQLRoute(req);
 
-      console.log('📊 Resolver: Updating chart with input:', {
+      console.log('Resolver: Updating chart with input:', {
         id: args.id.slice(0, 8),
         hasName: !!args.input.name,
         hasType: !!args.input.type,
@@ -160,7 +159,6 @@ export const ChartResolvers = {
         hasCategories: !!(args.input.categories && args.input.categories.length > 0)
       });
 
-      // המרת הנתונים לפורמט הנכון לפני השליחה ל-service
       const serviceUpdateInput = {
         name: args.input.name,
         type: args.input.type,
@@ -190,7 +188,7 @@ export const ChartResolvers = {
         updatedAt: updatedChart.updatedAt
       };
 
-      console.log('📊 Resolver: Chart updated successfully:', {
+      console.log('Resolver: Chart updated successfully:', {
         id: result.id.slice(0, 8),
         name: result.name
       });
@@ -206,11 +204,11 @@ export const ChartResolvers = {
       const { req } = contextValue;
       authenticateGraphQLRoute(req);
 
-      console.log('📊 Resolver: Deleting chart:', args.id.slice(0, 8));
+      console.log('Resolver: Deleting chart:', args.id.slice(0, 8));
 
       await chartService.deleteChart(args.id, `${req.currentUser?.userId}`);
       
-      console.log('📊 Resolver: Chart deleted successfully');
+      console.log('Resolver: Chart deleted successfully');
 
       return {
         message: `Chart ${args.id} deleted successfully`
