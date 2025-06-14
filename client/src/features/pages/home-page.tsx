@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { AppLayout } from "../../shared/app-layout";
-import { MessageSquare, Send, Loader2, Database, Settings, ChevronUp, ArrowUp, RefreshCw, Copy, Check } from "lucide-react";
+import { MessageSquare, Send, Loader2, Database, Settings, ChevronUp, ArrowUp, Copy, Check } from "lucide-react";
 import { useQuery } from "@apollo/client";
 import { GET_DATA_SOURCES } from "../../graphql/data-sources";
 
@@ -232,23 +232,7 @@ export const HomePage = () => {
         </div>
       )}
 
-      <div className="h-full flex flex-col bg-gradient-to-b from-indigo-50/90 to-slate-50/90">
-        <div className="p-6 pb-0">
-          <button
-            onClick={clearChat}
-            className="group relative overflow-hidden px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-full hover:from-indigo-600 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-indigo-500/25 flex items-center gap-2.5 text-sm font-medium transform hover:scale-105 active:scale-95"
-            title="Start new conversation"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            <RefreshCw 
-              size={16} 
-              className="relative z-10 group-hover:rotate-180 transition-transform duration-500" 
-            />
-            <span className="relative z-10 tracking-wide">New Chat</span>
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full opacity-0 group-hover:opacity-30 blur transition-all duration-300"></div>
-          </button>
-        </div>
-        
+      <div className="bg-gradient-to-b from-indigo-50/90 to-slate-50/90 min-h-full">
         <div className="flex-1 overflow-hidden">
           <div className="h-full flex flex-col">
             {messages.length === 0 ? (

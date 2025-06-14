@@ -85,18 +85,18 @@ interface NewChartForm {
 }
 
 const colors = [
-  'rgba(99, 102, 241, 0.8)',   
-  'rgba(236, 72, 153, 0.8)',   
-  'rgba(34, 197, 94, 0.8)',    
-  'rgba(251, 146, 60, 0.8)',   
-  'rgba(168, 85, 247, 0.8)',   
-  'rgba(14, 165, 233, 0.8)',   
-  'rgba(239, 68, 68, 0.8)',    
-  'rgba(245, 158, 11, 0.8)',   
-  'rgba(16, 185, 129, 0.8)',   
-  'rgba(139, 92, 246, 0.8)',   
-  'rgba(244, 114, 182, 0.8)',  
-  'rgba(56, 178, 172, 0.8)',   
+  'rgba(15, 23, 42, 0.8)',   
+  'rgba(123, 126, 244, 0.8)', 
+  'rgba(30, 41, 59, 0.8)',    
+  'rgba(107, 110, 228, 0.8)', 
+  'rgba(51, 65, 85, 0.8)',    
+  'rgba(139, 122, 255, 0.8)', 
+  'rgba(71, 85, 105, 0.8)',   
+  'rgba(91, 95, 200, 0.8)',   
+  'rgba(100, 116, 139, 0.8)', 
+  'rgba(155, 156, 255, 0.8)', 
+  'rgba(148, 163, 184, 0.8)', 
+  'rgba(75, 78, 220, 0.8)',  
 ];
 
 const convertGraphQLToChartJS = (chart: ChartData) => {
@@ -111,8 +111,8 @@ const convertGraphQLToChartJS = (chart: ChartData) => {
     labels = chart.data.map((_, index) => {
       if (chart.type === 'pie') {
         const defaultCategories = [
-          'Category A', 'Category B', 'Category D', 
-          'Category E', 'Category F', 'Category G', 'Category H'
+          'Category A', 'Category B', 'Category C', 
+          'Category D', 'Category E', 'Category F', 'Category G'
         ];
         return defaultCategories[index] || `Category ${index + 1}`;
       }
@@ -127,11 +127,18 @@ const convertGraphQLToChartJS = (chart: ChartData) => {
       data,
       backgroundColor: chart.type === 'pie' 
         ? colors.slice(0, data.length)
-        : colors[0],
+        : 'rgba(15, 23, 42, 0.8)', 
       borderColor: chart.type === 'pie'
         ? colors.slice(0, data.length).map(color => color.replace('0.8', '1'))
-        : 'rgba(99, 102, 241, 1)',
-      borderWidth: 2
+        : 'rgba(15, 23, 42, 1)', 
+      borderWidth: 2,
+
+      hoverBackgroundColor: chart.type === 'pie'
+        ? colors.slice(0, data.length).map(color => color.replace('0.8', '0.9'))
+        : 'rgba(123, 126, 244, 0.9)', 
+      hoverBorderColor: chart.type === 'pie'
+        ? colors.slice(0, data.length)
+        : 'rgba(123, 126, 244, 1)' 
     }]
   };
 };
@@ -146,23 +153,46 @@ const getChartOptions = (type: string, title: string) => {
         labels: {
           usePointStyle: true,
           padding: 20,
+          color: 'rgba(51, 65, 85, 1)', 
+          font: {
+            size: 12,
+            weight: '500' as const
+          }
         }
       },
       title: {
         display: true,
         text: title,
+        color: 'rgba(30, 41, 59, 1)', 
         font: {
           size: 16,
           weight: 'bold' as const
         }
       },
       tooltip: {
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        backgroundColor: 'rgba(30, 41, 59, 0.95)', 
         titleColor: 'white',
         bodyColor: 'white',
-        borderColor: 'rgba(99, 102, 241, 1)',
-        borderWidth: 1
+        borderColor: 'rgba(123, 126, 244, 1)',
+        borderWidth: 2,
+        cornerRadius: 8,
+        displayColors: true,
+        titleFont: {
+          size: 14,
+          weight: '600' as const
+        },
+        bodyFont: {
+          size: 13
+        }
       }
+    },
+
+    animation: {
+      duration: 2000,
+      easing: 'easeInOutQuart' as const
+    },
+    hover: {
+      animationDuration: 300
     }
   };
 
@@ -173,12 +203,26 @@ const getChartOptions = (type: string, title: string) => {
         y: {
           beginAtZero: true,
           grid: {
-            color: 'rgba(0, 0, 0, 0.1)'
+            color: 'rgba(148, 163, 184, 0.3)', 
+            borderColor: 'rgba(100, 116, 139, 1)'
+          },
+          ticks: {
+            color: 'rgba(71, 85, 105, 1)', 
+            font: {
+              size: 11
+            }
           }
         },
         x: {
           grid: {
-            color: 'rgba(0, 0, 0, 0.1)'
+            color: 'rgba(148, 163, 184, 0.3)', 
+            borderColor: 'rgba(100, 116, 139, 1)' 
+          },
+          ticks: {
+            color: 'rgba(71, 85, 105, 1)', 
+            font: {
+              size: 11
+            }
           }
         }
       }
@@ -691,7 +735,6 @@ const ChartsDashboard: React.FC = () => {
             </div>
 
             <div className="p-6 space-y-6">
-             
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Chart Name
@@ -705,7 +748,6 @@ const ChartsDashboard: React.FC = () => {
                 />
               </div>
 
-             
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Chart Type
@@ -756,7 +798,6 @@ const ChartsDashboard: React.FC = () => {
                 </div>
               </div>
 
-              
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Description
@@ -771,7 +812,6 @@ const ChartsDashboard: React.FC = () => {
               </div>
             </div>
 
-          
             <div className="p-6 border-t bg-slate-50 flex gap-3">
               <button
                 onClick={handleCancelCreate}

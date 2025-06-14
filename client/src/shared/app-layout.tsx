@@ -148,14 +148,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             <div className="relative">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                className="w-12 h-12 bg-gradient-to-br from-purple-600 via-indigo-500 to-blue-500 rounded-full flex items-center justify-center hover:from-purple-700 hover:via-indigo-600 hover:to-blue-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                style={{ aspectRatio: '1/1' }}
               >
-                <div className="w-6 h-6 bg-gradient-to-br from-slate-900 to-slate-800 rounded-full flex items-center justify-center">
-                  <User size={14} className="text-white" />
-                </div>
-                <span className="text-sm font-medium text-slate-700">
-                  {user?.email?.split('@')[0] || 'User'}
-                </span>
+                <User size={20} className="text-white drop-shadow-sm" />
               </button>
               
               {showUserMenu && (
@@ -164,13 +160,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                     className="fixed inset-0 z-40" 
                     onClick={() => setShowUserMenu(false)}
                   />
-                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 z-50">
+                  <div className="absolute right-0 top-full mt-2 w-68 bg-white rounded-lg shadow-lg border border-slate-200 z-50">
                     <div className="p-3 border-b border-slate-100">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-slate-900 to-slate-800 rounded-full flex items-center justify-center">
-                          <User size={20} className="text-white" />
+                        <div className="w-12 h-12 bg-gradient-to-br from-purple-600 via-indigo-500 to-blue-500 rounded-full flex items-center justify-center shadow-lg flex-shrink-0"
+                             style={{ aspectRatio: '1/1' }}>
+                          <User size={20} className="text-white drop-shadow-sm" />
                         </div>
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <div className="text-sm font-medium text-slate-900">
                             {user?.email?.split('@')[0] || 'User'}
                           </div>
