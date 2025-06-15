@@ -61,7 +61,6 @@ const Register = () => {
     }));
   };
 
-  // Password validation checks
   const hasMinLength = formData.password.length >= 7;
   const hasLowercase = /[a-z]/.test(formData.password);
   const hasNumber = /\d/.test(formData.password);
@@ -71,9 +70,11 @@ const Register = () => {
   const inputClass = "mt-1 w-full p-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:ring-2 focus:ring-[#7B7EF4] focus:border-transparent autofill:bg-slate-900/50 autofill:text-white autofill:shadow-[inset_0_0_0px_1000px_rgba(15,23,42,0.5)]";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#1e1b4b] px-4">
       <div className="bg-slate-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-xl shadow-indigo-500/10 w-full max-w-md border border-indigo-400/20">
-        <h1 className="text-2xl font-bold mb-6 text-center bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 to-purple-400">Register to Visual.AI</h1>
+        <h1 className="text-2xl font-bold mb-6 text-center bg-clip-text text-transparent bg-gradient-to-r from-[rgba(72,114,254,1)] via-[rgba(99,66,253,1)] to-[rgba(126,18,253,1)]">
+          Register to Visual.AI
+        </h1>
    
         {error && !passwordMismatch && (
           <div className="bg-red-900/20 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg mb-4 flex items-start gap-3">
